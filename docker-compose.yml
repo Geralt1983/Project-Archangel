@@ -1,55 +1,9 @@
 version: "3.9"
-
 services:
   api:
     build: .
+    env_file: .env
     ports:
       - "8080:8080"
-    environment:
-      CLICKUP_TOKEN: "${CLICKUP_TOKEN}"
-      CLICKUP_TEAM_ID: "${CLICKUP_TEAM_ID}"
-      CLICKUP_LIST_ID: "${CLICKUP_LIST_ID}"
-      CLICKUP_WEBHOOK_SECRET: "${CLICKUP_WEBHOOK_SECRET}"
-      DATABASE_URL: "postgresql://postgres:postgres@db:5432/tasks"
-      PORT: "8080"
-    depends_on:
-      - db
     volumes:
-      - ./app:/app/app
-    env_file:
-      - .env
-
-  db:
-    image: postgres:15
-    environment:
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: tasks
-      POSTGRES_USER: postgres
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  scheduler:
-    build: .
-    command: python -m app.scheduler
-    environment:
-      CLICKUP_TOKEN: "${CLICKUP_TOKEN}"
-      CLICKUP_TEAM_ID: "${CLICKUP_TEAM_ID}"
-      CLICKUP_LIST_ID: "${CLICKUP_LIST_ID}"
-      CLICKUP_WEBHOOK_SECRET: "${CLICKUP_WEBHOOK_SECRET}"
-      DATABASE_URL: "postgresql://postgres:postgres@db:5432/tasks"
-    depends_on:
-      - db
-    volumes:
-      - ./app:/app/app
-    env_file:
-      - .env
-
-volumes:
-  postgres_data:
+      - ./:/app
