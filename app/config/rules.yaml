@@ -1,0 +1,101 @@
+defaults:
+  aging_boost_per_day: 2
+  stale_after_days: 3
+  nudge_channel: "slack:#ops"
+
+clients:
+  acme:
+    sla_hours: 48
+    daily_cap_hours: 3
+    importance_bias: 1.2
+  meridian:
+    sla_hours: 24
+    daily_cap_hours: 2
+    importance_bias: 1.5
+  unknown:
+    sla_hours: 72
+    daily_cap_hours: 4
+    importance_bias: 1.0
+
+task_types:
+  bugfix:
+    labels: ["bug", "fix"]
+    checklist: 
+      - "Confirm repro"
+      - "Assess impact"
+      - "Patch"
+      - "Regression test"
+      - "Notify client"
+    subtasks:
+      - title: "Draft fix plan"
+        effort_hours: 0.5
+      - title: "Implement"
+        effort_hours: 1.0
+      - title: "Review"
+        effort_hours: 0.25
+      - title: "Deliver"
+        effort_hours: 0.25
+      - title: "Follow up"
+        effort_hours: 0.25
+    default_effort_hours: 2
+    importance: 4
+
+  report:
+    labels: ["report", "analysis"]
+    checklist:
+      - "Define question"
+      - "Pull data"
+      - "QA results"
+      - "Share link"
+    subtasks:
+      - title: "Draft"
+        effort_hours: 1.5
+      - title: "Review"
+        effort_hours: 0.5
+      - title: "Deliver"
+        effort_hours: 0.5
+      - title: "Follow up"
+        effort_hours: 0.5
+    default_effort_hours: 3
+    importance: 3
+
+  onboarding:
+    labels: ["setup"]
+    checklist:
+      - "Collect access"
+      - "Create project"
+      - "Baseline tasks"
+    subtasks:
+      - title: "Prepare"
+        effort_hours: 0.5
+      - title: "Execute"
+        effort_hours: 0.75
+      - title: "Confirm access"
+        effort_hours: 0.25
+    default_effort_hours: 1.5
+    importance: 3
+
+  general:
+    labels: ["task"]
+    checklist:
+      - "Review requirements"
+      - "Plan approach"
+      - "Execute"
+      - "Validate results"
+    subtasks:
+      - title: "Plan"
+        effort_hours: 0.5
+      - title: "Execute"
+        effort_hours: 1.0
+      - title: "Review"
+        effort_hours: 0.5
+    default_effort_hours: 2
+    importance: 2
+
+scoring:
+  urgency_weight: 0.30
+  importance_weight: 0.25
+  effort_weight: 0.15
+  freshness_weight: 0.10
+  sla_weight: 0.15
+  progress_weight: 0.05
