@@ -34,7 +34,7 @@ jobs:
           --health-retries=20
 
     env:
-      PYTHONPATH: ${{ github.workspace }}:${{ env.PYTHONPATH }}
+      PYTHONPATH: ${{ github.workspace }}
       DATABASE_URL: postgresql://archangel:archangel@localhost:5432/archangel
       PYTEST_ADDOPTS: -q
 
@@ -97,7 +97,7 @@ jobs:
     needs: test
     if: always() && github.event_name == 'pull_request'
     env:
-      PYTHONPATH: ${{ github.workspace }}:${{ env.PYTHONPATH }}
+      PYTHONPATH: ${{ github.workspace }}
 
     steps:
       - name: Checkout
@@ -139,7 +139,7 @@ jobs:
             git diff --unified=3 HEAD~1 HEAD > "$OUT_DIR/diff.patch" || true
           fi
 
-          SNAP_NAME="review_snapshot_${{ github.run_number }}_${{ github.sha::0:7 }}.zip"
+          SNAP_NAME="review_snapshot_${{ github.run_number }}_$(echo ${{ github.sha }} | cut -c1-7).zip"
           (cd "$OUT_DIR" && zip -qr "../$SNAP_NAME" .)
           echo "SNAP_NAME=$SNAP_NAME" >> $GITHUB_ENV
 
