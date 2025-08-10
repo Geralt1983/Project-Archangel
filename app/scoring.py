@@ -19,23 +19,17 @@ def compute_score(task: dict, rules: dict) -> float:
     due_iso = task.get("due_at") or task.get("deadline")
     hrs_to_deadline = _hours_until(due_iso)
 
+    # Continuous urgency:
+    # - If overdue (hrs < 0): treat as max urgency 1.0
+    # - If in future: urgency decays linearly over a 14-day (336h) horizon
+    #   0h -> 1.0, 336h -> 0.0, clamp to [0,1]
     if hrs_to_deadline is None:
         urgency = 0.0
+    elif hrs_to_deadline <= 0:
+        urgency = 1.0
     else:
-        h = max(0.0, hrs_to_deadline)
-        # Make bins strictly decreasing so closer deadline yields higher urgency
-        if h <= 4:
-            urgency = 1.0
-        elif h <= 24:
-            urgency = 0.8
-        elif h <= 72:
-            urgency = 0.6
-        elif h <= 168:
-            urgency = 0.4
-        elif h <= 336:
-            urgency = 0.2
-        else:
-            urgency = 0.0
+        horizon = 336.0  # 14 days
+        urgency = max(0.0, min(1.0, 1.0 - (float(hrs_to_deadline) / horizon)))
 
     importance = (task.get("importance", 3) / 5.0) * imp_bias
     
@@ -62,4 +56,5 @@ def compute_score(task: dict, rules: dict) -> float:
         0.15 * sla_pressure +
         0.05 * recent_progress_inv
     )
-    return round(float(score), 4)
+    # Return with slightly higher precision so close deadlines don't tie
+    return round(float(score), 6)
