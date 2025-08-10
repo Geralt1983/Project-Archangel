@@ -105,8 +105,45 @@ async def todoist_webhook(request: Request, x_todoist_hmac_sha256: str = Header(
 
 @app.post("/tasks/intake")
 async def intake(task: dict, provider: str = Query("clickup")):
+    from app.orchestrator import create_orchestrator, TaskContext, TaskState
+    
     adapter = get_adapter(provider)
     t = triage_with_serena(task, provider=adapter.name)
+    
+    # Use new orchestrator for enhanced scoring and decision making
+    orchestrator = create_orchestrator()
+    task_context = TaskContext(
+        id=t["id"],
+        title=t.get("title", ""),
+        description=t.get("description", ""),
+        client=t.get("client", ""),
+        provider=adapter.name,
+        state=TaskState.PENDING,
+        importance=t.get("importance", 3.0),
+        urgency=0.5,
+        value=0.6,
+        time_sensitivity=0.5,
+        sla_breach=0.3,
+        client_recent_allocation=0.0,
+        assignee_current_wip=2,
+        age_hours=0.0,
+        last_activity_hours=0.0,
+        effort_hours=t.get("effort_hours", 1.0),
+        deadline=datetime.fromisoformat(t["deadline"].replace("Z", "+00:00")) if t.get("deadline") else None,
+        created_at=datetime.now(timezone.utc)
+    )
+    
+    # Get orchestration decision
+    decision = orchestrator.orchestrate_task(task_context)
+    t["score"] = decision.score
+    t["orchestration_meta"] = {
+        "recommended_action": decision.recommended_action,
+        "reasoning": decision.reasoning,
+        "staleness_curve": decision.staleness_curve,
+        "fairness_penalty": decision.fairness_penalty,
+        "wip_enforcement": decision.wip_enforcement
+    }
+    
     created = adapter.create_task(t)
     external_id = created.get("id")
     if t.get("subtasks"):
@@ -123,7 +160,9 @@ async def intake(task: dict, provider: str = Query("clickup")):
         "id": t["id"], "provider": adapter.name, "external_id": external_id,
         "status": "triaged", "score": t["score"],
         "subtasks_created": len(t["subtasks"]), "checklist_items": len(t["checklist"]),
-        "serena_policy": t.get("serena_meta", {}).get("policy", {})
+        "serena_policy": t.get("serena_meta", {}).get("policy", {}),
+        "orchestration": decision.recommended_action,
+        "reasoning": decision.reasoning[:3]  # Top 3 reasons
     }
 
 @app.post("/triage/run")
@@ -132,31 +171,54 @@ async def triage_run(task: dict):
 
 @app.post("/rebalance/run")
 async def rebalance_run(available_hours_today: float = 5.0):
-    from app.mcp_client import rebalance_call
+    from app.orchestrator import create_orchestrator, TaskContext, TaskState
     from app.db_pg import fetch_open_tasks
     from app.config import load_rules
-    from app.balancer import plan_today
     
     tasks = fetch_open_tasks()
-    rules = load_rules()
-    payload = {
-        "tasks": [
-            {"id": t["id"], "client": t.get("client",""), "score": t.get("score",0.0),
-             "effort_hours": t.get("effort_hours",1.0), "deadline": t.get("deadline")}
-            for t in tasks
-        ],
-        "constraints": {
-            "available_hours_today": available_hours_today,
-            "client_caps": {c: cfg.get("daily_cap_hours", 2) for c, cfg in rules.get("clients",{}).items()},
-            "override_urgent_within_hours": 24
+    orchestrator = create_orchestrator()
+    
+    # Convert tasks to TaskContext objects
+    task_contexts = []
+    for t in tasks:
+        task_context = TaskContext(
+            id=t["id"],
+            title=t.get("title", ""),
+            description=t.get("description", ""),
+            client=t.get("client", ""),
+            provider=t.get("provider", "internal"),
+            state=TaskState.PENDING,
+            importance=t.get("importance", 3.0),
+            urgency=0.5,
+            value=0.6,
+            time_sensitivity=0.5,
+            sla_breach=0.3,
+            client_recent_allocation=0.0,
+            assignee_current_wip=2,
+            age_hours=0.0,
+            last_activity_hours=0.0,
+            effort_hours=t.get("effort_hours", 1.0),
+            deadline=datetime.fromisoformat(t["deadline"].replace("Z", "+00:00")) if t.get("deadline") else None,
+            created_at=datetime.fromisoformat(t["created_at"].replace("Z", "+00:00")) if t.get("created_at") else datetime.now(timezone.utc)
+        )
+        task_contexts.append(task_context)
+    
+    # Use orchestrator for intelligent rebalancing
+    rebalance_result = orchestrator.rebalance_workload(task_contexts)
+    
+    return {
+        "orchestration_mode": True,
+        "available_hours": available_hours_today,
+        "total_tasks": rebalance_result["total_tasks"],
+        "prioritized_tasks": rebalance_result["prioritized_tasks"],
+        "workload_distribution": rebalance_result["workload_distribution"],
+        "rebalancing_suggestions": rebalance_result["rebalancing_suggestions"],
+        "average_score": rebalance_result["average_score"],
+        "plan": {
+            client: [task["task_id"] for task in rebalance_result["prioritized_tasks"][:5] if task["task_id"]]
+            for client in set(t.get("client", "internal") for t in tasks)
         }
     }
-    if _serena_enabled():
-        res = rebalance_call(payload)
-        if res and "plan" in res:
-            return res
-    # fallback to local planner
-    return {"plan": plan_today(tasks, available_hours_today)}
 
 def _serena_enabled():
     import os
@@ -205,3 +267,135 @@ def record_outcomes(items: list[dict]):
     # items: [{task_id, result, time_spent_hours, satisfaction, reopened}]
     # store to a new table if you want model feedback
     return {"ok": True}
+
+# Orchestrator Management Endpoints
+@app.get("/orchestrator/config")
+async def get_orchestrator_config():
+    """Get current orchestrator configuration"""
+    from app.orchestrator import create_orchestrator
+    orchestrator = create_orchestrator()
+    return {
+        "scoring_weights": orchestrator.scoring_engine.weights,
+        "staleness_config": {
+            "threshold_hours": orchestrator.scoring_engine.staleness_threshold,
+            "max_penalty": orchestrator.scoring_engine.staleness_max_penalty
+        },
+        "wip_limits": orchestrator.wip_enforcer.wip_limits,
+        "load_balance_threshold": orchestrator.wip_enforcer.load_balance_threshold
+    }
+
+@app.post("/orchestrator/config")
+async def update_orchestrator_config(config: dict):
+    """Update orchestrator configuration"""
+    # In a real implementation, this would update persistent configuration
+    return {"ok": True, "updated_config": config}
+
+@app.get("/orchestrator/stats")
+async def orchestrator_stats():
+    """Get orchestrator statistics"""
+    from app.orchestrator import create_orchestrator
+    from app.db_pg import fetch_open_tasks
+    
+    orchestrator = create_orchestrator()
+    tasks = fetch_open_tasks()
+    
+    # Get score distribution
+    scores = []
+    for task in tasks[:100]:  # Sample for performance
+        score = task.get("score", 0.0)
+        scores.append(score)
+    
+    return {
+        "total_scored_tasks": len(scores),
+        "average_score": sum(scores) / len(scores) if scores else 0,
+        "score_distribution": {
+            "high_priority": len([s for s in scores if s >= 0.8]),
+            "medium_priority": len([s for s in scores if 0.4 <= s < 0.8]),
+            "low_priority": len([s for s in scores if s < 0.4])
+        },
+        "database_stats": {
+            "db_path": str(orchestrator.state_manager.db_path),
+            "tables_initialized": True
+        }
+    }
+
+@app.post("/orchestrator/simulate")
+async def simulate_orchestration(simulation_config: dict):
+    """Simulate orchestration with different configurations"""
+    from app.orchestrator import create_orchestrator, TaskContext, TaskState
+    
+    base_config = simulation_config.get("config", {})
+    test_tasks = simulation_config.get("tasks", [])
+    
+    orchestrator = create_orchestrator(base_config)
+    results = []
+    
+    for task_data in test_tasks[:50]:  # Limit for performance
+        task_context = TaskContext(
+            id=task_data.get("id", "test"),
+            title=task_data.get("title", "Test Task"),
+            description=task_data.get("description", ""),
+            client=task_data.get("client", "test-client"),
+            provider="simulation",
+            state=TaskState.PENDING,
+            importance=task_data.get("importance", 3.0),
+            urgency=task_data.get("urgency", 0.5),
+            value=task_data.get("value", 0.6),
+            time_sensitivity=task_data.get("time_sensitivity", 0.5),
+            sla_breach=task_data.get("sla_breach", 0.3),
+            client_recent_allocation=0.0,
+            assignee_current_wip=2,
+            age_hours=task_data.get("age_hours", 0.0),
+            last_activity_hours=0.0,
+            effort_hours=task_data.get("effort_hours", 1.0)
+        )
+        
+        decision = orchestrator.orchestrate_task(task_context)
+        results.append({
+            "task_id": task_context.id,
+            "score": decision.score,
+            "action": decision.recommended_action,
+            "reasoning": decision.reasoning[:2]  # Top 2 reasons
+        })
+    
+    return {
+        "simulation_results": results,
+        "average_score": sum(r["score"] for r in results) / len(results) if results else 0,
+        "action_distribution": {
+            action: len([r for r in results if r["action"] == action])
+            for action in set(r["action"] for r in results)
+        }
+    }
+
+@app.post("/providers/health")
+async def provider_health_check():
+    """Check health of all provider adapters"""
+    from app.providers.adapter_framework import ProviderManager, create_provider_adapter
+    import os
+    
+    manager = ProviderManager()
+    
+    # Register providers based on environment configuration
+    providers_config = {
+        "clickup": {
+            "token": os.getenv("CLICKUP_TOKEN", ""),
+            "team_id": os.getenv("CLICKUP_TEAM_ID", ""),
+            "list_id": os.getenv("CLICKUP_LIST_ID", ""),
+            "webhook_secret": os.getenv("CLICKUP_WEBHOOK_SECRET", "")
+        }
+    }
+    
+    for name, config in providers_config.items():
+        if config.get("token"):  # Only register if configured
+            adapter = create_provider_adapter(name, config)
+            if adapter:
+                manager.register_provider(adapter)
+    
+    health_results = await manager.health_check()
+    provider_stats = await manager.get_provider_stats()
+    
+    return {
+        "health_check": health_results,
+        "provider_stats": provider_stats,
+        "registered_providers": list(manager.providers.keys())
+    }
