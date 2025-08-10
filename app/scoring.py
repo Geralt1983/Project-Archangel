@@ -15,8 +15,27 @@ def compute_score(task: dict, rules: dict) -> float:
     client_cfg = rules.get("clients", {}).get(task.get("client", ""), {})
     imp_bias = client_cfg.get("importance_bias", 1.0)
 
-    hrs_to_deadline = _hours_until(task.get("deadline")) or 168.0
-    urgency = max(0.0, min(1.0, 1 - hrs_to_deadline / 168.0))
+    # Accept both 'due_at' and 'deadline'
+    due_iso = task.get("due_at") or task.get("deadline")
+    hrs_to_deadline = _hours_until(due_iso)
+
+    if hrs_to_deadline is None:
+        urgency = 0.0
+    else:
+        h = max(0.0, hrs_to_deadline)
+        # Make bins strictly decreasing so closer deadline yields higher urgency
+        if h <= 4:
+            urgency = 1.0
+        elif h <= 24:
+            urgency = 0.8
+        elif h <= 72:
+            urgency = 0.6
+        elif h <= 168:
+            urgency = 0.4
+        elif h <= 336:
+            urgency = 0.2
+        else:
+            urgency = 0.0
 
     importance = (task.get("importance", 3) / 5.0) * imp_bias
     
@@ -32,8 +51,7 @@ def compute_score(task: dict, rules: dict) -> float:
 
     recent_progress_inv = max(0.0, min(1.0, 1 - task.get("recent_progress", 0.0)))
 
-    # FIX: Set urgency flags for planner
-    task["deadline_within_24h"] = hrs_to_deadline <= 24.0
+    task["deadline_within_24h"] = bool(hrs_to_deadline is not None and hrs_to_deadline <= 24)
     task["sla_pressure"] = sla_pressure
 
     score = (

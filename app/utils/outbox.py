@@ -1,7 +1,7 @@
 from __future__ import annotations
 import json
 import hashlib
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone, timedelta
 from typing import Callable, Optional, List, Dict, Any
 
@@ -22,15 +22,40 @@ def make_idempotency_key(operation_type: str, endpoint: str, request: Dict[str, 
 @dataclass
 class OutboxOperation:
     id: int
+    idempotency_key: str
     operation_type: str
     endpoint: str
-    request: Dict[str, Any]
-    headers: Dict[str, Any]
-    idempotency_key: str
-    status: str
-    retry_count: int
-    next_retry_at: Optional[datetime]
-    error: Optional[str]
+
+    # Primary structured request/headers used by the outbox
+    request: Dict[str, Any] = field(default_factory=dict)
+    headers: Dict[str, Any] = field(default_factory=dict)
+
+    # Aliases used by some tests/tools (string body, attempts counters, alt timestamps)
+    request_body: Optional[str] = None
+    attempts: int = 0
+    next_attempt: Optional[datetime] = None
+
+    # Canonical fields used by the queue
+    status: str = "pending"
+    retry_count: int = 0
+    next_retry_at: Optional[datetime] = None
+    error: Optional[str] = None
+    created_at: Optional[datetime] = None
+
+    def __post_init__(self):
+        # If only request_body is provided, try to parse JSON into request
+        if not self.request and self.request_body:
+            try:
+                self.request = json.loads(self.request_body)
+            except Exception:
+                # keep raw; worker/dispatch can decide how to handle
+                self.request = {"_raw": self.request_body}
+
+        # Keep aliases in sync
+        if self.attempts and not self.retry_count:
+            self.retry_count = self.attempts
+        if self.next_attempt and not self.next_retry_at:
+            self.next_retry_at = self.next_attempt
 
 
 class OutboxManager:
@@ -68,11 +93,17 @@ class OutboxManager:
     def mark_failed(self, ob_id: int, retry_in_seconds: int, error: str):
         conn = self.conn_factory()
         with conn.cursor() as c:
-            next_at = _now() + timedelta(seconds=max(1, retry_in_seconds))
+            # Allow immediate eligibility when retry_in_seconds == 0
+            next_at = _now() + timedelta(seconds=max(0, int(retry_in_seconds)))
             c.execute("""
-            update outbox set status='failed', retry_count=retry_count+1, next_retry_at=%s, error=%s, updated_at=now()
-            where id=%s
-            """, (next_at, error[:2000], ob_id))
+            update outbox
+               set status='failed',
+                   retry_count=retry_count+1,
+                   next_retry_at=%s,
+                   error=%s,
+                   updated_at=now()
+             where id=%s
+            """, (next_at, str(error)[:2000], ob_id))
 
     def dead_letter(self, ob_id: int, error: str):
         conn = self.conn_factory()
