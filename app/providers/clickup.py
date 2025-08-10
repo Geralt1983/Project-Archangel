@@ -62,6 +62,16 @@ class ClickUpAdapter(ProviderAdapter):
         mac = hmac.new(self.webhook_secret.encode(), raw_body, hashlib.sha256).hexdigest()
         return hmac.compare_digest(sig, mac)
 
+    def create_webhook(self, callback_url: str):
+        payload = {
+            "endpoint": callback_url,
+            "events": ["taskCreated", "taskUpdated", "taskDeleted"],
+            "secret": self.webhook_secret
+        }
+        r = self.client.post(f"{CLICKUP_API}/team/{self.team_id}/webhook", json=payload)
+        r.raise_for_status()
+        return r.json()
+
     def _backoff(self, resp):
         import time, random
         retry_after = float(resp.headers.get("Retry-After", "1"))

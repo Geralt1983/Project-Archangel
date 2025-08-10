@@ -1,18 +1,96 @@
 import os, datetime as dt
-from .db import fetch_open_tasks, save_task
+from .db_pg import fetch_open_tasks, save_task
 from .scoring import compute_score
 from .config import load_rules
+from .balancer import plan_today
 from .providers.clickup import ClickUpAdapter
 
 def daily_reeval():
     rules = load_rules()
-    for t in fetch_open_tasks():
+    now = dt.datetime.utcnow().isoformat() + "Z"
+    tasks = fetch_open_tasks()
+    for t in tasks:
         t["score"] = compute_score(t, rules)
         save_task(t)
+    plan = plan_today(tasks, available_hours_today=5.0)
+    return plan
 
 def weekly_checkins():
-    # stub: compute per client summary and send to Slack or email
-    pass
+    from collections import defaultdict
+    from .notify import post_slack
+    
+    tasks = fetch_open_tasks()
+    by_client = defaultdict(lambda: {"open": 0, "avg_score": 0.0})
+    for t in tasks:
+        c = t.get("client","unknown")
+        by_client[c]["open"] += 1
+        by_client[c]["avg_score"] += float(t.get("score", 0.0))
+    for c, agg in by_client.items():
+        if agg["open"]:
+            agg["avg_score"] = round(agg["avg_score"] / agg["open"], 3)
+    lines = ["Weekly check in"]
+    for c, agg in sorted(by_client.items()):
+        lines.append(f"{c}: open {agg['open']}, avg score {agg['avg_score']}")
+    text = "\n".join(lines)
+    post_slack(text)
+    return {"sent": True, "summary": by_client}
+
+def _parse_iso(s: str):
+    return dt.datetime.fromisoformat(s.replace("Z", "+00:00"))
+
+def _days_since(iso_ts: str):
+    try:
+        return max(0.0, (dt.datetime.utcnow() - _parse_iso(iso_ts).replace(tzinfo=None)).total_seconds() / 86400.0)
+    except Exception:
+        return 0.0
+
+def _task_link(t: dict) -> str:
+    provider = t.get("provider","clickup")
+    ext = t.get("external_id","")
+    if provider == "clickup" and ext:
+        return f"https://app.clickup.com/t/{ext}"
+    if provider == "trello" and ext:
+        return f"https://trello.com/c/{ext}"
+    if provider == "todoist" and ext:
+        return f"https://todoist.com/showTask?id={ext}"
+    return ""
+
+def hourly_stale_nudge():
+    from .notify import post_slack, nudge_line
+    
+    rules = load_rules()
+    stale_days = float(rules["defaults"].get("stale_after_days", 3))
+    boost_per_day = float(rules["defaults"].get("aging_boost_per_day", 2))
+    tasks = fetch_open_tasks()
+    nudged = []
+    now_iso = dt.datetime.utcnow().isoformat() + "Z"
+
+    for t in tasks:
+        payload = t
+        updated_iso = payload.get("updated_at") or payload.get("created_at") or now_iso
+        days = _days_since(updated_iso)
+        if days >= stale_days:
+            # bump score by aging boost
+            bump = (days - stale_days + 1.0) * boost_per_day / 100.0
+            old = float(payload.get("score", 0.0))
+            payload["score"] = round(min(1.0, old + bump), 4)
+            payload["updated_at"] = payload.get("updated_at", payload.get("created_at", now_iso))  # do not reset activity
+            save_task(payload)
+            link = _task_link(payload)
+            line = nudge_line(
+                task_id=payload["id"],
+                title=payload.get("title",""),
+                client=payload.get("client",""),
+                provider=payload.get("provider",""),
+                link=link,
+                days_stale=int(days),
+                score=payload["score"],
+            )
+            nudged.append(line)
+
+    if nudged:
+        post_slack("Stale nudges\n" + "\n".join(nudged))
+    return {"nudged": len(nudged)}
 
 def make_adapter():
     return ClickUpAdapter(

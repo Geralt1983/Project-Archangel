@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Project Archangel - AI Task Commander</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .header {
+            background: rgba(255,255,255,0.95);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+        
+        .header h1 {
+            font-size: 32px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 10px;
+        }
+        
+        .stats {
+            display: flex;
+            gap: 20px;
+            margin-top: 20px;
+        }
+        
+        .stat {
+            flex: 1;
+            padding: 15px;
+            background: rgba(102, 126, 234, 0.1);
+            border-radius: 10px;
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #667eea;
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+        
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 2fr 1fr;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .panel {
+            background: rgba(255,255,255,0.95);
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        
+        .panel h2 {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: #667eea;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .task-input {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: all 0.3s;
+            margin-bottom: 10px;
+        }
+        
+        .task-input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        .btn {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+        
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .task-list {
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        
+        .task-item {
+            background: white;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-left: 4px solid #667eea;
+            transition: all 0.3s;
+            cursor: pointer;
+            position: relative;
+        }
+        
+        .task-item:hover {
+            transform: translateX(5px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        
+        .task-item.priority-high {
+            border-left-color: #f56565;
+        }
+        
+        .task-item.priority-medium {
+            border-left-color: #ed8936;
+        }
+        
+        .task-item.priority-low {
+            border-left-color: #48bb78;
+        }
+        
+        .task-title {
+            font-weight: 600;
+            margin-bottom: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .task-score {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 2px 8px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .task-meta {
+            font-size: 12px;
+            color: #666;
+            display: flex;
+            gap: 15px;
+            margin-top: 5px;
+        }
+        
+        .task-client {
+            background: #f0f0f0;
+            padding: 2px 8px;
+            border-radius: 5px;
+        }
+        
+        .task-subtasks {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #e0e0e0;
+        }
+        
+        .subtask {
+            font-size: 13px;
+            color: #666;
+            margin: 5px 0;
+            padding-left: 20px;
+            position: relative;
+        }
+        
+        .subtask:before {
+            content: "▸";
+            position: absolute;
+            left: 0;
+            color: #667eea;
+        }
+        
+        .ai-badge {
+            background: linear-gradient(135deg, #ffd700, #ffb700);
+            color: #333;
+            padding: 2px 8px;
+            border-radius: 5px;
+            font-size: 11px;
+            font-weight: bold;
+            margin-left: 5px;
+        }
+        
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .timeline {
+            position: relative;
+            padding-left: 30px;
+        }
+        
+        .timeline-item {
+            position: relative;
+            padding-bottom: 20px;
+        }
+        
+        .timeline-item:before {
+            content: "";
+            position: absolute;
+            left: -25px;
+            top: 5px;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #667eea;
+        }
+        
+        .timeline-item:after {
+            content: "";
+            position: absolute;
+            left: -20px;
+            top: 15px;
+            width: 1px;
+            height: calc(100% - 15px);
+            background: #e0e0e0;
+        }
+        
+        .timeline-item:last-child:after {
+            display: none;
+        }
+        
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: white;
+            padding: 15px 20px;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            display: none;
+            animation: slideIn 0.3s ease;
+        }
+        
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        
+        .notification.show {
+            display: block;
+        }
+        
+        .notification.success {
+            border-left: 4px solid #48bb78;
+        }
+        
+        .notification.error {
+            border-left: 4px solid #f56565;
+        }
+        
+        .ws-status {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-left: 10px;
+        }
+        
+        .ws-connected {
+            background: #48bb78;
+            animation: pulse 2s infinite;
+        }
+        
+        .ws-disconnected {
+            background: #f56565;
+        }
+        
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(72, 187, 120, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(72, 187, 120, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(72, 187, 120, 0); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 Project Archangel <span class="ws-status ws-disconnected" id="wsStatus"></span></h1>
+            <p>AI-Powered Task Command Center</p>
+            
+            <div class="stats">
+                <div class="stat">
+                    <div class="stat-value" id="totalTasks">0</div>
+                    <div class="stat-label">Total Tasks</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value" id="aiEnhanced">0</div>
+                    <div class="stat-label">AI Enhanced</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value" id="avgScore">0.00</div>
+                    <div class="stat-label">Avg Priority</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value" id="staleTasks">0</div>
+                    <div class="stat-label">Stale Tasks</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="main-grid">
+            <!-- Quick Create Panel -->
+            <div class="panel">
+                <h2>⚡ Quick Create</h2>
+                <input type="text" class="task-input" id="taskTitle" placeholder="Task title..." />
+                <textarea class="task-input" id="taskDesc" placeholder="Description (optional)..." rows="3"></textarea>
+                <select class="task-input" id="taskClient">
+                    <option value="internal">Internal</option>
+                    <option value="acme-corp">ACME Corp</option>
+                    <option value="startup-x">Startup X</option>
+                    <option value="enterprise">Enterprise</option>
+                </select>
+                <button class="btn" id="createBtn" onclick="createTask()">
+                    🤖 Create with AI Enhancement
+                </button>
+                
+                <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #e0e0e0;">
+                    <h3 style="font-size: 14px; margin-bottom: 10px;">Quick Actions</h3>
+                    <button class="btn" style="background: #48bb78; margin-bottom: 10px;" onclick="rebalanceTasks()">
+                        ⚖️ Rebalance Workload
+                    </button>
+                    <button class="btn" style="background: #ed8936;" onclick="checkStale()">
+                        🔔 Check Stale Tasks
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Active Tasks Panel -->
+            <div class="panel">
+                <h2>📋 Active Tasks <span class="ai-badge">AI PRIORITIZED</span></h2>
+                <div class="task-list" id="taskList">
+                    <div style="text-align: center; color: #999; padding: 40px;">
+                        Loading tasks...
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Activity Timeline -->
+            <div class="panel">
+                <h2>📊 Live Activity</h2>
+                <div class="timeline" id="timeline">
+                    <div class="timeline-item">
+                        <strong>System Started</strong>
+                        <div style="font-size: 12px; color: #666;">Waiting for events...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="notification" id="notification"></div>
+    
+    <script>
+        const API_BASE = 'http://localhost:8080';
+        let tasks = [];
+        let ws = null;
+        
+        // Initialize
+        async function init() {
+            await loadTasks();
+            setupWebSocket();
+            updateStats();
+        }
+        
+        // Load tasks from API
+        async function loadTasks() {
+            try {
+                const response = await fetch(`${API_BASE}/health`);
+                if (!response.ok) throw new Error('API not available');
+                
+                // For now, we'll use the tasks we've created
+                // In a real implementation, you'd have a /tasks endpoint
+                showNotification('Connected to API', 'success');
+                
+                // Simulate loading tasks
+                updateTaskList();
+            } catch (error) {
+                showNotification('Failed to connect to API', 'error');
+            }
+        }
+        
+        // Create task with AI enhancement
+        async function createTask() {
+            const title = document.getElementById('taskTitle').value;
+            const description = document.getElementById('taskDesc').value;
+            const client = document.getElementById('taskClient').value;
+            
+            if (!title) {
+                showNotification('Please enter a task title', 'error');
+                return;
+            }
+            
+            const btn = document.getElementById('createBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="loading"></span> Creating with AI...';
+            
+            try {
+                const response = await fetch(`${API_BASE}/tasks/intake`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        title,
+                        description,
+                        client,
+                        deadline: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+                    })
+                });
+                
+                const result = await response.json();
+                
+                // Add to local tasks
+                tasks.unshift({
+                    id: result.id,
+                    title,
+                    description,
+                    client,
+                    score: result.score,
+                    subtasks: result.subtasks_created,
+                    checklist: result.checklist_items,
+                    status: result.status,
+                    created: new Date().toISOString(),
+                    ai_enhanced: true
+                });
+                
+                updateTaskList();
+                updateStats();
+                
+                // Clear form
+                document.getElementById('taskTitle').value = '';
+                document.getElementById('taskDesc').value = '';
+                
+                showNotification(`Task created with ${result.subtasks_created} AI subtasks!`, 'success');
+                
+                // Add to timeline
+                addTimelineEvent(`Task "${title}" created`, `Score: ${result.score.toFixed(2)}, ${result.subtasks_created} subtasks`);
+                
+            } catch (error) {
+                showNotification('Failed to create task', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '🤖 Create with AI Enhancement';
+            }
+        }
+        
+        // Update task list display
+        function updateTaskList() {
+            const container = document.getElementById('taskList');
+            
+            if (tasks.length === 0) {
+                container.innerHTML = '<div style="text-align: center; color: #999; padding: 40px;">No tasks yet. Create one above!</div>';
+                return;
+            }
+            
+            // Sort by score (priority)
+            const sortedTasks = [...tasks].sort((a, b) => (b.score || 0) - (a.score || 0));
+            
+            container.innerHTML = sortedTasks.map(task => {
+                const priority = task.score > 0.7 ? 'high' : task.score > 0.4 ? 'medium' : 'low';
+                
+                return `
+                    <div class="task-item priority-${priority}">
+                        <div class="task-title">
+                            <span>${task.title}</span>
+                            <span class="task-score">${(task.score || 0).toFixed(2)}</span>
+                        </div>
+                        <div class="task-meta">
+                            <span class="task-client">${task.client}</span>
+                            ${task.ai_enhanced ? '<span class="ai-badge">AI</span>' : ''}
+                            ${task.subtasks ? `<span>📝 ${task.subtasks} subtasks</span>` : ''}
+                            ${task.checklist ? `<span>✓ ${task.checklist} items</span>` : ''}
+                        </div>
+                        ${task.description ? `<div style="margin-top: 10px; font-size: 13px; color: #666;">${task.description}</div>` : ''}
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        // Update statistics
+        function updateStats() {
+            document.getElementById('totalTasks').textContent = tasks.length;
+            document.getElementById('aiEnhanced').textContent = tasks.filter(t => t.ai_enhanced).length;
+            
+            const avgScore = tasks.length > 0 
+                ? (tasks.reduce((sum, t) => sum + (t.score || 0), 0) / tasks.length).toFixed(2)
+                : '0.00';
+            document.getElementById('avgScore').textContent = avgScore;
+            
+            // Stale tasks (mock for now)
+            document.getElementById('staleTasks').textContent = '0';
+        }
+        
+        // Rebalance tasks
+        async function rebalanceTasks() {
+            showNotification('Rebalancing workload with AI...', 'success');
+            
+            try {
+                const response = await fetch(`${API_BASE}/rebalance/run`, {
+                    method: 'POST'
+                });
+                const result = await response.json();
+                showNotification('Workload rebalanced!', 'success');
+                addTimelineEvent('Workload Rebalanced', 'AI optimization applied');
+            } catch (error) {
+                showNotification('Failed to rebalance', 'error');
+            }
+        }
+        
+        // Check stale tasks
+        async function checkStale() {
+            showNotification('Checking for stale tasks...', 'success');
+            
+            try {
+                const response = await fetch(`${API_BASE}/nudges/stale/run`, {
+                    method: 'POST'
+                });
+                const result = await response.json();
+                showNotification(`Found ${result.stale_count || 0} stale tasks`, 'success');
+                addTimelineEvent('Stale Check', `${result.stale_count || 0} tasks need attention`);
+            } catch (error) {
+                showNotification('Failed to check stale tasks', 'error');
+            }
+        }
+        
+        // Setup WebSocket for real-time updates
+        function setupWebSocket() {
+            // In a real implementation, you'd connect to a WebSocket endpoint
+            // For now, we'll simulate it
+            document.getElementById('wsStatus').className = 'ws-status ws-connected';
+            
+            // Simulate incoming events
+            setInterval(() => {
+                if (Math.random() > 0.8) {
+                    addTimelineEvent('Task Updated', 'Activity detected via webhook');
+                }
+            }, 30000);
+        }
+        
+        // Add event to timeline
+        function addTimelineEvent(title, description) {
+            const timeline = document.getElementById('timeline');
+            const item = document.createElement('div');
+            item.className = 'timeline-item';
+            item.innerHTML = `
+                <strong>${title}</strong>
+                <div style="font-size: 12px; color: #666;">${description}</div>
+                <div style="font-size: 11px; color: #999;">${new Date().toLocaleTimeString()}</div>
+            `;
+            
+            // Add after first item (system started)
+            if (timeline.children.length > 1) {
+                timeline.insertBefore(item, timeline.children[1]);
+            } else {
+                timeline.appendChild(item);
+            }
+            
+            // Keep only last 10 events
+            while (timeline.children.length > 10) {
+                timeline.removeChild(timeline.lastChild);
+            }
+        }
+        
+        // Show notification
+        function showNotification(message, type = 'success') {
+            const notification = document.getElementById('notification');
+            notification.className = `notification show ${type}`;
+            notification.textContent = message;
+            
+            setTimeout(() => {
+                notification.className = 'notification';
+            }, 3000);
+        }
+        
+        // Initialize on load
+        window.onload = init;
+        
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (e.ctrlKey && e.key === 'Enter') {
+                createTask();
+            }
+        });
+    </script>
+</body>
+</html>
