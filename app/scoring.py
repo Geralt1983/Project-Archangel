@@ -56,4 +56,11 @@ def compute_score(task: dict, rules: dict) -> float:
         0.15 * sla_pressure +
         0.05 * recent_progress_inv
     )
+
+    # Micro tie-breaker: earlier deadlines (smaller hours) get a tiny boost.
+    # This counters sub-millisecond drift in freshness/SLA between two calls.
+    if hrs_to_deadline is not None:
+        # Scale is ~1e-9 per hour; 1000h shifts score by ~1e-6.
+        score += (-float(hrs_to_deadline)) * 1e-9
+
     return float(score)
