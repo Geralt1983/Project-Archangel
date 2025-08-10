@@ -19,14 +19,22 @@ def compute_score(task: dict, rules: dict) -> float:
     urgency = max(0.0, min(1.0, 1 - hrs_to_deadline / 168.0))
 
     importance = (task.get("importance", 3) / 5.0) * imp_bias
-    effort_factor = max(0.0, min(1.0, (task.get("effort_hours", 1.0) / 8.0)))
+    
+    # FIX: Invert effort factor to favor smaller tasks (small wins)
+    effort_factor = max(0.0, min(1.0, 1 - (task.get("effort_hours", 1.0) / 8.0)))
     freshness = max(0.0, min(1.0, 1 - (_hours_since(task["created_at"]) / 168.0)))
 
     sla_hours = client_cfg.get("sla_hours", 72)
-    hrs_to_sla = (_hours_until(task.get("created_at")) or 0) + sla_hours  # created_at until SLA window ends
-    sla_pressure = max(0.0, min(1.0, 1 - (hrs_to_sla / 72.0)))
+    # FIX: Correct SLA pressure calculation - hours left in SLA window
+    hours_since_created = _hours_since(task["created_at"])
+    hours_left_in_sla = max(0.0, sla_hours - hours_since_created)
+    sla_pressure = max(0.0, min(1.0, 1 - (hours_left_in_sla / sla_hours)))
 
     recent_progress_inv = max(0.0, min(1.0, 1 - task.get("recent_progress", 0.0)))
+
+    # FIX: Set urgency flags for planner
+    task["deadline_within_24h"] = hrs_to_deadline <= 24.0
+    task["sla_pressure"] = sla_pressure
 
     score = (
         0.30 * urgency +

@@ -179,8 +179,10 @@ async def rebalance_run(available_hours_today: float = 5.0):
     from app.orchestrator import create_orchestrator, TaskContext, TaskState
     from app.db_pg import fetch_open_tasks
     from app.config import load_rules
+    from app.scheduler import compute_fairness_deficits
     
     tasks = fetch_open_tasks()
+    rules = load_rules()
     orchestrator = create_orchestrator()
     
     # Convert tasks to TaskContext objects
@@ -211,6 +213,11 @@ async def rebalance_run(available_hours_today: float = 5.0):
     # Use orchestrator for intelligent rebalancing
     rebalance_result = orchestrator.rebalance_workload(task_contexts)
     
+    # FIX: Also compute fairness deficits for traditional planner
+    fairness_deficits = compute_fairness_deficits(tasks, rules)
+    from app.balancer import plan_today
+    traditional_plan = plan_today(tasks, available_hours_today, fairness_deficits)
+    
     return {
         "orchestration_mode": True,
         "available_hours": available_hours_today,
@@ -219,6 +226,8 @@ async def rebalance_run(available_hours_today: float = 5.0):
         "workload_distribution": rebalance_result["workload_distribution"],
         "rebalancing_suggestions": rebalance_result["rebalancing_suggestions"],
         "average_score": rebalance_result["average_score"],
+        "fairness_deficits": fairness_deficits,
+        "traditional_plan": traditional_plan,
         "plan": {
             client: [task["task_id"] for task in rebalance_result["prioritized_tasks"][:5] if task["task_id"]]
             for client in set(t.get("client", "internal") for t in tasks)

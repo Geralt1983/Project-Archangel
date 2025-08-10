@@ -1,15 +1,24 @@
 from datetime import datetime, timezone
 from .config import load_rules
 
-def plan_today(tasks: list[dict], available_hours_today: float) -> dict[str, list[str]]:
+def plan_today(tasks: list[dict], available_hours_today: float, fairness_deficits: dict[str, float] = None) -> dict[str, list[str]]:
     rules = load_rules()
+    fairness_deficits = fairness_deficits or {}
+    
     per_client = {}
     for t in tasks:
         c = t.get("client","")
         per_client.setdefault(c, []).append(t)
-    # score already computed
-    for arr in per_client.values():
-        arr.sort(key=lambda x: x.get("score",0), reverse=True)
+    
+    # FIX: Apply fairness deficit boost to scores before sorting
+    for client, arr in per_client.items():
+        deficit = fairness_deficits.get(client, 0.0)
+        fairness_boost = max(0.0, min(0.5, deficit))  # Bounded boost up to +0.5
+        for t in arr:
+            t["adjusted_score"] = t.get("score", 0.0) + fairness_boost
+        # Sort by adjusted score
+        arr.sort(key=lambda x: x.get("adjusted_score", 0), reverse=True)
+    
     plan = {}
     remaining = available_hours_today
     for client, arr in per_client.items():

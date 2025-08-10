@@ -12,8 +12,38 @@ def daily_reeval():
     for t in tasks:
         t["score"] = compute_score(t, rules)
         save_task(t)
-    plan = plan_today(tasks, available_hours_today=5.0)
+    
+    # FIX: Compute fairness deficits and apply to planning
+    fairness_deficits = compute_fairness_deficits(tasks, rules)
+    plan = plan_today(tasks, available_hours_today=5.0, fairness_deficits=fairness_deficits)
     return plan
+
+def compute_fairness_deficits(tasks: list[dict], rules: dict) -> dict[str, float]:
+    """Compute fairness deficit from current task counts vs configured target share"""
+    from collections import defaultdict
+    
+    # Count tasks per client
+    client_counts = defaultdict(int)
+    for t in tasks:
+        client_counts[t.get("client", "unknown")] += 1
+    
+    total_tasks = len(tasks)
+    if total_tasks == 0:
+        return {}
+    
+    # Calculate deficits based on target share vs actual share
+    deficits = {}
+    for client, config in rules.get("clients", {}).items():
+        target_share = config.get("target_share", 0.2)  # Default 20% if not specified
+        actual_count = client_counts.get(client, 0)
+        actual_share = actual_count / total_tasks
+        
+        # Deficit is how far below target share this client is
+        deficit = max(0.0, target_share - actual_share)
+        if deficit > 0.05:  # Only apply meaningful deficits (>5%)
+            deficits[client] = deficit
+    
+    return deficits
 
 def weekly_checkins():
     from collections import defaultdict
