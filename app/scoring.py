@@ -56,5 +56,4 @@ def compute_score(task: dict, rules: dict) -> float:
         0.15 * sla_pressure +
         0.05 * recent_progress_inv
     )
-    # Return with slightly higher precision so close deadlines don't tie
-    return round(float(score), 6)
+    return float(score)
