@@ -1,0 +1,82 @@
+[
+  {
+    "path": "REVIEW.md",
+    "size": 554,
+    "sha256": "a23f6c11dc91f070e7b4eab81615be2809f6172c6a58042a5aac17fa94339693"
+  },
+  {
+    "path": "artifacts/pytest.txt",
+    "size": 33,
+    "sha256": "4751394180885cc8d86d3428e0f83eddb196dddf6a627b0f41f0be242c0164c7"
+  },
+  {
+    "path": "diff.patch",
+    "size": 54776,
+    "sha256": "a562c4b954788cab3665e410f93350ab210b543bec755252cb7a56397bff2d11"
+  },
+  {
+    "path": "files/.github/workflows/ci.yaml",
+    "size": 6793,
+    "sha256": "479632a5deb93fbcdabe92b366f974ce8748e0760f7cb98e170b686ef4086d5b"
+  },
+  {
+    "path": "files/.snapshot_tmp/pytest.txt",
+    "size": 33,
+    "sha256": "4751394180885cc8d86d3428e0f83eddb196dddf6a627b0f41f0be242c0164c7"
+  },
+  {
+    "path": "files/Makefile",
+    "size": 814,
+    "sha256": "8687c0dfaca4ab30fdbb8d2eb28716fbdbbf1099d7fd4f56b3e6c5ddf724ba22"
+  },
+  {
+    "path": "files/app/api_outbox.py",
+    "size": 712,
+    "sha256": "481d94c6c23b108d34e341e5bac8dedeeb1c5a0e193161eb568ec37b613fef77"
+  },
+  {
+    "path": "files/app/main.py",
+    "size": 126,
+    "sha256": "09a88d4b057def10d507cbdc918d6892bd0d784d04491f146e6a691248f3337c"
+  },
+  {
+    "path": "files/outbox_worker.py",
+    "size": 1561,
+    "sha256": "d7031419cd4e834aa777688b3129309ddd9cc7653cd41537141b2f008040d01c"
+  },
+  {
+    "path": "files/pytest.ini",
+    "size": 103,
+    "sha256": "018e0f04756d5552ba103a35d6b93fe3c3d15c700bb0e6c1ed9e2a75764b4fab"
+  },
+  {
+    "path": "files/requirements.txt",
+    "size": 152,
+    "sha256": "9709f3de93486c0bcdc7db1357a163f31b4f785deb33b25c071e294e6dccc482"
+  },
+  {
+    "path": "files/scripts/make_snapshot.sh",
+    "size": 1666,
+    "sha256": "c857cc282e093b15288fa9cb417ce3dc7415b7a8a1dd5074df8435bf88aedac3"
+  },
+  {
+    "path": "files/scripts/review_bundle.py",
+    "size": 4584,
+    "sha256": "e373630966c6bc70159fadeadbe2f66e8842bedd3e307ccbf79a19f6dda6a0f8"
+  },
+  {
+    "path": "files/tests/test_outbox_integration.py",
+    "size": 2307,
+    "sha256": "73a0b896577c1b8d8a7b742cc88b8bb58362b86fe3680e6659b1f1526fba5382"
+  },
+  {
+    "path": "files/tests/test_retry.py",
+    "size": 946,
+    "sha256": "811823e25e946e39c7088e33e7d04f19168e806324ced6c0c9e3712977d7f809"
+  },
+  {
+    "path": "status.json",
+    "size": 135,
+    "sha256": "d7bd1ef2a0c039ba1c1b6e1dce3617d28fce18b73d5ea199b54fbcdf43e88cb9"
+  }
+]

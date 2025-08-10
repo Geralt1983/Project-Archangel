@@ -5,10 +5,12 @@ from app.providers.clickup import ClickUpAdapter
 from app.providers.trello import TrelloAdapter
 from app.providers.todoist import TodoistAdapter
 from app.triage_serena import triage_with_serena
-from app.db_pg import save_task, upsert_event, seen_delivery, touch_task, map_upsert, map_get_internal
+from app.db_pg import save_task, upsert_event, seen_delivery, touch_task, map_upsert, map_get_internal, get_conn
 from app.audit import log_event
+from app.api_outbox import router as outbox_router
 
 app = FastAPI()
+app.include_router(outbox_router)
 
 def clickup():
     return ClickUpAdapter(
@@ -106,8 +108,7 @@ async def todoist_webhook(request: Request, x_todoist_hmac_sha256: str = Header(
 @app.post("/tasks/intake")
 async def intake(task: dict, provider: str = Query("clickup")):
     from app.orchestrator import create_orchestrator, TaskContext, TaskState
-    from app.utils.outbox import OutboxManager, create_task_operation
-    from app.db_pg import _ensure_conn
+    from app.utils.outbox import OutboxManager
     
     adapter = get_adapter(provider)
     t = triage_with_serena(task, provider=adapter.name)
@@ -152,30 +153,36 @@ async def intake(task: dict, provider: str = Query("clickup")):
     }
     
     # Use outbox pattern for reliable task creation
-    outbox = OutboxManager(_ensure_conn)
+    outbox = OutboxManager(get_conn)
+    
+    # Always enqueue first for exactly-once semantics
+    idem_key = outbox.enqueue(
+        operation_type="create_task",
+        endpoint="/tasks",
+        request={
+            "task_data": t,
+            "provider": adapter.name
+        }
+    )
     
     try:
-        # Immediate provider operation with retry
+        # Try immediate creation with fallback to worker
         created = adapter.create_task(t)
         external_id = created.get("id")
         
-        # Create outbox operations for subtasks and checklist (async operations)
-        if t.get("subtasks"):
-            outbox.add_operation(
+        # Enqueue follow-up operations
+        if t.get("subtasks") and external_id:
+            outbox.enqueue(
                 operation_type="create_subtasks",
-                provider=adapter.name,
                 endpoint=f"/tasks/{external_id}/subtasks",
-                payload={"parent_id": external_id, "subtasks": t["subtasks"]},
-                metadata={"task_id": t["id"]}
+                request={"parent_id": external_id, "subtasks": t["subtasks"]}
             )
         
-        if t.get("checklist"):
-            outbox.add_operation(
-                operation_type="add_checklist", 
-                provider=adapter.name,
+        if t.get("checklist") and external_id:
+            outbox.enqueue(
+                operation_type="add_checklist",
                 endpoint=f"/tasks/{external_id}/checklist",
-                payload={"task_id": external_id, "items": t["checklist"]},
-                metadata={"task_id": t["id"]}
+                request={"task_id": external_id, "items": t["checklist"]}
             )
         
         t["external_id"] = external_id
@@ -186,13 +193,12 @@ async def intake(task: dict, provider: str = Query("clickup")):
         log_event("pushed", {"task_id": t["id"], "external_id": external_id, "provider": adapter.name})
         
     except Exception as e:
-        # If immediate creation fails, add to outbox for retry
+        # If immediate creation fails, outbox worker will retry
         log_event("outbox_fallback", {"task_id": t["id"], "error": str(e), "provider": adapter.name})
         
-        outbox_op = create_task_operation(adapter.name, t, outbox)
         t["external_id"] = None
         t["provider"] = adapter.name
-        t["outbox_operation_id"] = outbox_op.id
+        t["outbox_idempotency_key"] = idem_key
         save_task(t)
         
         external_id = None
@@ -449,72 +455,4 @@ async def provider_health_check():
         "registered_providers": list(manager.providers.keys())
     }
 
-# Outbox Management Endpoints
-@app.get("/outbox/stats")
-async def outbox_stats():
-    """Get outbox operation statistics"""
-    from app.utils.outbox import OutboxManager
-    from app.db_pg import _ensure_conn
-    
-    outbox = OutboxManager(_ensure_conn)
-    stats = outbox.get_stats()
-    
-    return {
-        "outbox_stats": stats,
-        "total_operations": sum(stats.values())
-    }
-
-@app.post("/outbox/process")
-async def process_outbox(batch_size: int = 50):
-    """Process pending outbox operations"""
-    from app.utils.outbox import OutboxManager, OutboxProcessor
-    from app.db_pg import _ensure_conn
-    
-    # Create provider registry for processor
-    provider_registry = {
-        "clickup": get_adapter("clickup"),
-        # Add other providers as needed
-    }
-    
-    outbox = OutboxManager(_ensure_conn)
-    processor = OutboxProcessor(outbox, provider_registry)
-    
-    try:
-        stats = await processor.process_pending(batch_size)
-        return {
-            "processing_stats": stats,
-            "success": True
-        }
-    except Exception as e:
-        return {
-            "error": str(e),
-            "success": False
-        }
-
-@app.get("/outbox/pending")
-async def get_pending_operations(limit: int = 20):
-    """Get pending outbox operations"""
-    from app.utils.outbox import OutboxManager
-    from app.db_pg import _ensure_conn
-    
-    outbox = OutboxManager(_ensure_conn)
-    operations = outbox.get_pending_operations(limit)
-    
-    return {
-        "pending_operations": [op.to_dict() for op in operations],
-        "count": len(operations)
-    }
-
-@app.post("/outbox/cleanup")
-async def cleanup_outbox(older_than_days: int = 7):
-    """Clean up completed outbox operations"""
-    from app.utils.outbox import OutboxManager
-    from app.db_pg import _ensure_conn
-    
-    outbox = OutboxManager(_ensure_conn)
-    cleaned_count = outbox.cleanup_completed(older_than_days)
-    
-    return {
-        "cleaned_operations": cleaned_count,
-        "older_than_days": older_than_days
-    }
+# Outbox Management Endpoints are now in app/api_outbox.py router

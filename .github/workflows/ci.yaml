@@ -1,0 +1,220 @@
+name: CI
+
+on:
+  push:
+    branches: [ "**" ]
+  pull_request:
+    branches: [ "**" ]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: archangel
+          POSTGRES_PASSWORD: archangel
+          POSTGRES_DB: archangel
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U archangel -d archangel"
+          --health-interval=3s
+          --health-timeout=3s
+          --health-retries=20
+
+    env:
+      PYTHONPATH: ${{ github.workspace }}:${{ env.PYTHONPATH }}
+      DATABASE_URL: postgresql://archangel:archangel@localhost:5432/archangel
+      PYTEST_ADDOPTS: -q
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # needed so snapshot job can diff against base
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install system deps (psycopg2 safety net)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libpq-dev build-essential
+
+      - name: Install Python deps
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          python - << 'PY'
+import importlib, sys, subprocess
+try:
+    importlib.import_module("psycopg2")
+except Exception:
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "psycopg2-binary"])
+PY
+
+      - name: Wait for Postgres ready
+        run: |
+          for i in {1..40}; do
+            if pg_isready -h 127.0.0.1 -p 5432 -U archangel -d archangel >/dev/null 2>&1; then
+              echo "Postgres is ready"; break
+            fi
+            sleep 1
+          done
+
+      - name: Init DB schema
+        run: |
+          python -c "from app.db_pg import init; init(); print('Tables ready')"
+
+      - name: Run tests
+        run: |
+          set -o pipefail
+          python -m pytest | tee pytest.log
+
+      - name: Upload logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-logs
+          path: pytest.log
+
+  snapshot:
+    runs-on: ubuntu-latest
+    needs: test
+    if: always() && github.event_name == 'pull_request'
+    env:
+      PYTHONPATH: ${{ github.workspace }}:${{ env.PYTHONPATH }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install Python deps (only if needed by review script)
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt || true; fi
+          # jq used below to safely embed text
+          sudo apt-get update && sudo apt-get install -y jq
+
+      - name: Build review snapshot
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE_REF="origin/${{ github.base_ref }}"
+          echo "Base ref: $BASE_REF"
+          OUT_DIR=".snapshot_out"
+          rm -rf "$OUT_DIR"
+          mkdir -p "$OUT_DIR"
+
+          if [ ! -f scripts/review_bundle.py ]; then
+            echo "scripts/review_bundle.py not found"; exit 1
+          fi
+
+          python scripts/review_bundle.py --out "$OUT_DIR" --base "$BASE_REF"
+
+          # Fallback if diff is empty: compare last commit
+          if [ ! -s "$OUT_DIR/diff.patch" ]; then
+            git diff --unified=3 HEAD~1 HEAD > "$OUT_DIR/diff.patch" || true
+          fi
+
+          SNAP_NAME="review_snapshot_${{ github.run_number }}_${{ github.sha::0:7 }}.zip"
+          (cd "$OUT_DIR" && zip -qr "../$SNAP_NAME" .)
+          echo "SNAP_NAME=$SNAP_NAME" >> $GITHUB_ENV
+
+          # Prepare a short excerpt of REVIEW.md (first 40 lines)
+          if [ -f "$OUT_DIR/REVIEW.md" ]; then
+            head -n 40 "$OUT_DIR/REVIEW.md" > REVIEW_excerpt.md
+          else
+            echo "# Review" > REVIEW_excerpt.md
+            echo "No REVIEW.md found in snapshot." >> REVIEW_excerpt.md
+          fi
+
+      - name: Upload review snapshot artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.SNAP_NAME }}
+          path: ${{ env.SNAP_NAME }}
+
+      - name: Post or update PR comment with snapshot
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const artifactName = process.env.SNAP_NAME || 'review_snapshot.zip';
+            const marker = '<!-- review-snapshot-bot -->';
+
+            let excerpt = '';
+            try {
+              excerpt = fs.readFileSync('REVIEW_excerpt.md', 'utf8');
+            } catch (e) {
+              excerpt = 'No REVIEW.md excerpt available.';
+            }
+
+            const body = [
+              marker,
+              `**Review snapshot ready** for \`${context.payload.pull_request?.head?.ref}\` @ \`${context.sha.substring(0,7)}\`.`,
+              '',
+              `- 📦 **Artifact**: [${artifactName}](${runUrl}) → "Artifacts" section`,
+              `- 🧪 **CI run**: ${runUrl}`,
+              '',
+              '<details><summary><strong>REVIEW.md (first 40 lines)</strong></summary>',
+              '',
+              '```md',
+              excerpt,
+              '```',
+              '',
+              '</details>'
+            ].join('\n');
+
+            // Find existing bot comment (by marker)
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+              per_page: 100
+            });
+
+            const existing = comments.find(c =>
+              c.user.type === 'Bot' &&
+              c.user.login.includes('github-actions') &&
+              c.body && c.body.includes(marker)
+            );
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.payload.pull_request.number,
+                body
+              });
+            }
