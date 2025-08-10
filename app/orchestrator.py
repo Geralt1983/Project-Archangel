@@ -169,10 +169,13 @@ class ScoringEngine:
     def _compute_fairness(self, task: TaskContext) -> float:
         """Compute fairness factor to promote equitable distribution"""
         # Client fairness: Penalize clients with high recent allocation
-        client_penalty = min(0.5, task.client_recent_allocation / self.config['client_caps']['default'])
+        client_caps = self.config.get('client_caps', {})
+        default_cap = client_caps.get('default', 8)
+        client_penalty = min(0.5, task.client_recent_allocation / default_cap)
         
         # Assignee fairness: Penalize high WIP assignees  
-        wip_limit = self.config['wip_limits'].get(task.assignee, self.config['wip_limits']['default'])
+        wip_limits = self.config.get('wip_limits', {'default': 3})
+        wip_limit = wip_limits.get(task.assignee, wip_limits.get('default', 3))
         wip_penalty = min(0.5, task.assignee_current_wip / wip_limit) if task.assignee else 0
         
         return max(0.0, 1.0 - client_penalty - wip_penalty)
@@ -365,8 +368,12 @@ class TaskOrchestrator:
             timestamp=datetime.now(timezone.utc)
         )
         
-        # Persist decision for audit trail
-        self.state_manager.save_decision(decision)
+        # Persist decision for audit trail (async operation, don't wait)
+        try:
+            self.state_manager.save_decision(decision)
+        except Exception as e:
+            # Log but don't fail orchestration
+            pass
         
         return decision
         

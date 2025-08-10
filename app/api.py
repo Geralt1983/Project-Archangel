@@ -141,7 +141,12 @@ async def intake(task: dict, provider: str = Query("clickup")):
         "reasoning": decision.reasoning,
         "staleness_curve": decision.staleness_curve,
         "fairness_penalty": decision.fairness_penalty,
-        "wip_enforcement": decision.wip_enforcement
+        "wip_enforcement": {
+            "can_assign": decision.wip_enforcement.get("can_assign", True),
+            "current_wip": decision.wip_enforcement.get("current_wip", 0),
+            "limit": decision.wip_enforcement.get("limit", 3),
+            "utilization": decision.wip_enforcement.get("utilization", 0.0)
+        }
     }
     
     created = adapter.create_task(t)
