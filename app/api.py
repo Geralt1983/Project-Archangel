@@ -106,6 +106,8 @@ async def todoist_webhook(request: Request, x_todoist_hmac_sha256: str = Header(
 @app.post("/tasks/intake")
 async def intake(task: dict, provider: str = Query("clickup")):
     from app.orchestrator import create_orchestrator, TaskContext, TaskState
+    from app.utils.outbox import OutboxManager, create_task_operation
+    from app.db_pg import _ensure_conn
     
     adapter = get_adapter(provider)
     t = triage_with_serena(task, provider=adapter.name)
@@ -149,18 +151,51 @@ async def intake(task: dict, provider: str = Query("clickup")):
         }
     }
     
-    created = adapter.create_task(t)
-    external_id = created.get("id")
-    if t.get("subtasks"):
-        adapter.create_subtasks(external_id, t["subtasks"])
-    if t.get("checklist"):
-        adapter.add_checklist(external_id, t["checklist"])
-    t["external_id"] = external_id
-    t["provider"] = adapter.name
-    save_task(t)
-    if external_id:
-        map_upsert(adapter.name, external_id, t["id"])
-    log_event("pushed", {"task_id": t["id"], "external_id": external_id, "provider": adapter.name})
+    # Use outbox pattern for reliable task creation
+    outbox = OutboxManager(_ensure_conn)
+    
+    try:
+        # Immediate provider operation with retry
+        created = adapter.create_task(t)
+        external_id = created.get("id")
+        
+        # Create outbox operations for subtasks and checklist (async operations)
+        if t.get("subtasks"):
+            outbox.add_operation(
+                operation_type="create_subtasks",
+                provider=adapter.name,
+                endpoint=f"/tasks/{external_id}/subtasks",
+                payload={"parent_id": external_id, "subtasks": t["subtasks"]},
+                metadata={"task_id": t["id"]}
+            )
+        
+        if t.get("checklist"):
+            outbox.add_operation(
+                operation_type="add_checklist", 
+                provider=adapter.name,
+                endpoint=f"/tasks/{external_id}/checklist",
+                payload={"task_id": external_id, "items": t["checklist"]},
+                metadata={"task_id": t["id"]}
+            )
+        
+        t["external_id"] = external_id
+        t["provider"] = adapter.name
+        save_task(t)
+        if external_id:
+            map_upsert(adapter.name, external_id, t["id"])
+        log_event("pushed", {"task_id": t["id"], "external_id": external_id, "provider": adapter.name})
+        
+    except Exception as e:
+        # If immediate creation fails, add to outbox for retry
+        log_event("outbox_fallback", {"task_id": t["id"], "error": str(e), "provider": adapter.name})
+        
+        outbox_op = create_task_operation(adapter.name, t, outbox)
+        t["external_id"] = None
+        t["provider"] = adapter.name
+        t["outbox_operation_id"] = outbox_op.id
+        save_task(t)
+        
+        external_id = None
     return {
         "id": t["id"], "provider": adapter.name, "external_id": external_id,
         "status": "triaged", "score": t["score"],
@@ -412,4 +447,74 @@ async def provider_health_check():
         "health_check": health_results,
         "provider_stats": provider_stats,
         "registered_providers": list(manager.providers.keys())
+    }
+
+# Outbox Management Endpoints
+@app.get("/outbox/stats")
+async def outbox_stats():
+    """Get outbox operation statistics"""
+    from app.utils.outbox import OutboxManager
+    from app.db_pg import _ensure_conn
+    
+    outbox = OutboxManager(_ensure_conn)
+    stats = outbox.get_stats()
+    
+    return {
+        "outbox_stats": stats,
+        "total_operations": sum(stats.values())
+    }
+
+@app.post("/outbox/process")
+async def process_outbox(batch_size: int = 50):
+    """Process pending outbox operations"""
+    from app.utils.outbox import OutboxManager, OutboxProcessor
+    from app.db_pg import _ensure_conn
+    
+    # Create provider registry for processor
+    provider_registry = {
+        "clickup": get_adapter("clickup"),
+        # Add other providers as needed
+    }
+    
+    outbox = OutboxManager(_ensure_conn)
+    processor = OutboxProcessor(outbox, provider_registry)
+    
+    try:
+        stats = await processor.process_pending(batch_size)
+        return {
+            "processing_stats": stats,
+            "success": True
+        }
+    except Exception as e:
+        return {
+            "error": str(e),
+            "success": False
+        }
+
+@app.get("/outbox/pending")
+async def get_pending_operations(limit: int = 20):
+    """Get pending outbox operations"""
+    from app.utils.outbox import OutboxManager
+    from app.db_pg import _ensure_conn
+    
+    outbox = OutboxManager(_ensure_conn)
+    operations = outbox.get_pending_operations(limit)
+    
+    return {
+        "pending_operations": [op.to_dict() for op in operations],
+        "count": len(operations)
+    }
+
+@app.post("/outbox/cleanup")
+async def cleanup_outbox(older_than_days: int = 7):
+    """Clean up completed outbox operations"""
+    from app.utils.outbox import OutboxManager
+    from app.db_pg import _ensure_conn
+    
+    outbox = OutboxManager(_ensure_conn)
+    cleaned_count = outbox.cleanup_completed(older_than_days)
+    
+    return {
+        "cleaned_operations": cleaned_count,
+        "older_than_days": older_than_days
     }
