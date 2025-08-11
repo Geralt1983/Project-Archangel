@@ -1,0 +1,152 @@
+[
+  {
+    "path": "REVIEW.md",
+    "size": 1641,
+    "sha256": "38e8b2f5594d11c5f0f6ead2a270dd408a1ee846ec66745ec35fe1bc29242afd"
+  },
+  {
+    "path": "artifacts/pytest.txt",
+    "size": 33,
+    "sha256": "4751394180885cc8d86d3428e0f83eddb196dddf6a627b0f41f0be242c0164c7"
+  },
+  {
+    "path": "diff.patch",
+    "size": 183203,
+    "sha256": "c5e25bb7a24621d81862a4be875d20370fff1cbf05976fa5238c110d410927ef"
+  },
+  {
+    "path": "files/.archangel.workspace.md",
+    "size": 879,
+    "sha256": "7a330d13c01f83a79a2423ec04c4a9f7a4ea7c1208b41b241ad6126e32f87049"
+  },
+  {
+    "path": "files/.env.example",
+    "size": 107,
+    "sha256": "50c3db0c151d6b962277af8f1dac2389bff72d8b6a481017aa9f6016e543a738"
+  },
+  {
+    "path": "files/.github/pull_request_template.md",
+    "size": 1226,
+    "sha256": "e1f9e85466ab85734f17e09f060d364286248463ff53f4b3349a943a60b3faec"
+  },
+  {
+    "path": "files/.github/workflows/ci.yaml",
+    "size": 6818,
+    "sha256": "ee3fa13b44da683719dbce63b712407e9451c4697657bfaea006c6927a85796b"
+  },
+  {
+    "path": "files/.snapshot_out/files/.github/workflows/ci.yaml",
+    "size": 6818,
+    "sha256": "ee3fa13b44da683719dbce63b712407e9451c4697657bfaea006c6927a85796b"
+  },
+  {
+    "path": "files/.snapshot_tmp/pytest.txt",
+    "size": 33,
+    "sha256": "4751394180885cc8d86d3428e0f83eddb196dddf6a627b0f41f0be242c0164c7"
+  },
+  {
+    "path": "files/CLAUDE.md",
+    "size": 4302,
+    "sha256": "43a61dc12d385fd2189887b38be00c6c10547ded1c0abaa275ea5e02c6e89df4"
+  },
+  {
+    "path": "files/Makefile",
+    "size": 798,
+    "sha256": "bc157ab3c2a021ccdc6a5a3d72fcf71dc9c04e748b0a0b12ee9059a1b65c63b1"
+  },
+  {
+    "path": "files/app/api.py",
+    "size": 17344,
+    "sha256": "f19a4bb762619d36bc5e6536e3defe19347551dc6233362ef57168aefcef3b1b"
+  },
+  {
+    "path": "files/app/api_outbox.py",
+    "size": 712,
+    "sha256": "481d94c6c23b108d34e341e5bac8dedeeb1c5a0e193161eb568ec37b613fef77"
+  },
+  {
+    "path": "files/app/db_pg.py",
+    "size": 3628,
+    "sha256": "990f76ab783bb82964bc8c41399b7fef1370ad81f8ec84f665daa69b43372685"
+  },
+  {
+    "path": "files/app/main.py",
+    "size": 126,
+    "sha256": "09a88d4b057def10d507cbdc918d6892bd0d784d04491f146e6a691248f3337c"
+  },
+  {
+    "path": "files/app/scoring.py",
+    "size": 3238,
+    "sha256": "66103e4c7c2230b48f3105c2bad91024f10f60539a42d332c83d4c8906c3ff7b"
+  },
+  {
+    "path": "files/app/utils/outbox.py",
+    "size": 5852,
+    "sha256": "d9ce8e32cbb973237f7b131e83fce454272e68be27e6614e58c381e7c2283073"
+  },
+  {
+    "path": "files/app/utils/retry.py",
+    "size": 1972,
+    "sha256": "cbd9e2d96475f4da9f07ee0536ffe157717344fb221749af5ed1b97562fa2f4d"
+  },
+  {
+    "path": "files/docker-compose.yml",
+    "size": 449,
+    "sha256": "6ee48a8d1c6f85fac657c681feeaa172aab453a2f68a2dd48da5a8a4589848ed"
+  },
+  {
+    "path": "files/docs/commands.md",
+    "size": 3426,
+    "sha256": "41fc9442231dad8c5a894d4d6c5711c807d86d8d5aee4d2f8b7e71fac584ac97"
+  },
+  {
+    "path": "files/outbox_worker.py",
+    "size": 1818,
+    "sha256": "8d473ad80fe95f026e832e122b4fd7e32d2432e495e7c3ccfeceaa33743f2952"
+  },
+  {
+    "path": "files/pytest.ini",
+    "size": 87,
+    "sha256": "83bdda8ce8ea4a7465d7d5909c466b8504989877ff530887f6724c6f2ba0bb37"
+  },
+  {
+    "path": "files/requirements.txt",
+    "size": 166,
+    "sha256": "202734a0849fa99c8ed3b1e62affc08de12795924166c13c0fcafacf79a98dcb"
+  },
+  {
+    "path": "files/scripts/make_snapshot.sh",
+    "size": 1666,
+    "sha256": "c857cc282e093b15288fa9cb417ce3dc7415b7a8a1dd5074df8435bf88aedac3"
+  },
+  {
+    "path": "files/scripts/review_bundle.py",
+    "size": 4584,
+    "sha256": "e373630966c6bc70159fadeadbe2f66e8842bedd3e307ccbf79a19f6dda6a0f8"
+  },
+  {
+    "path": "files/scripts/score_explain.py",
+    "size": 1152,
+    "sha256": "e05f0c0795a175df1aad60ec8e1b07ee152feaab85ec90ab6145a5802fddd301"
+  },
+  {
+    "path": "files/tests/test_basic.py",
+    "size": 2047,
+    "sha256": "afd911c85df6dd683fc128c14768f706f766ac34c16d47b9e9bd88ecac1d9825"
+  },
+  {
+    "path": "files/tests/test_outbox_integration.py",
+    "size": 2307,
+    "sha256": "73a0b896577c1b8d8a7b742cc88b8bb58362b86fe3680e6659b1f1526fba5382"
+  },
+  {
+    "path": "files/tests/test_retry.py",
+    "size": 946,
+    "sha256": "811823e25e946e39c7088e33e7d04f19168e806324ced6c0c9e3712977d7f809"
+  },
+  {
+    "path": "status.json",
+    "size": 152,
+    "sha256": "10aaee1041c1c8552f77e46a3366044419a9f39b995f967b391e15fe2eb2fde0"
+  }
+]

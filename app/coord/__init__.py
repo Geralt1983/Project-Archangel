@@ -1,0 +1,1 @@
+# Coordination hooks for decision tracing and audit logging
