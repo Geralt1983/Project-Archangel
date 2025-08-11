@@ -39,4 +39,3 @@ worker:
 
 lint:
 	ruff check .
-EOF < /dev/null

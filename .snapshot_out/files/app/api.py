@@ -8,13 +8,9 @@ from app.triage_serena import triage_with_serena
 from app.db_pg import save_task, upsert_event, seen_delivery, touch_task, map_upsert, map_get_internal, get_conn
 from app.audit import log_event
 from app.api_outbox import router as outbox_router
-from app.api_memory import router as memory_router
-from app.api_usage import router as usage_router
 
 app = FastAPI()
 app.include_router(outbox_router)
-app.include_router(memory_router)
-app.include_router(usage_router)
 
 def clickup():
     return ClickUpAdapter(

@@ -28,6 +28,11 @@ def main():
     ob = OutboxManager(get_conn)
     batch = ob.pick_batch(limit=args.limit)
 
+    delivered = 0
+    failed = 0
+    dead = 0
+    picked = len(batch)
+
     for op in batch:
         ob.mark_inflight(op.id)
 
@@ -37,13 +42,18 @@ def main():
         try:
             retry(_call, max_tries=args.max_tries, retry_if=default_httpx_retryable())
             ob.mark_delivered(op.id)
+            delivered += 1
         except Exception as e:
             # schedule retry or dead-letter after N tries
             rc = op.retry_count + 1
             if rc >= args.max_tries:
                 ob.dead_letter(op.id, str(e))
+                dead += 1
             else:
                 ob.mark_failed(op.id, retry_in_seconds=int(next_backoff(rc)), error=str(e))
+                failed += 1
+
+    print(f"[metrics] outbox.worker delivered={delivered} failed={failed} dead={dead} picked={picked}")
 
 
 if __name__ == "__main__":
