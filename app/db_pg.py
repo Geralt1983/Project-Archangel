@@ -1,8 +1,14 @@
 import os
 import json
 import threading
-import psycopg2
 from contextlib import contextmanager
+
+try:
+    import psycopg2
+except Exception:
+    # Dev fallback so tests run locally without libpq headers
+    import importlib
+    psycopg2 = importlib.import_module("psycopg2-binary")
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 
@@ -89,3 +95,15 @@ def dlq_put(provider: str, endpoint: str, request: dict, error: str):
         insert into outbox(operation_type, endpoint, request, headers, idempotency_key, status, error)
         values(%s,%s,%s::jsonb,%s::jsonb,%s,%s,%s)
         """, ("dlq", endpoint, json.dumps(request), json.dumps({}), f"dlq:{endpoint}", "dead", error))
+
+
+def outbox_cleanup(retain_days: int = 7, max_rows: int = 10000):
+    """Delete delivered rows older than N days, keep table lean in dev."""
+    conn = _ensure_conn()
+    with conn.cursor() as c:
+        c.execute("""
+        delete from outbox
+         where status='delivered'
+           and created_at < now() - (%s || ' days')::interval
+        limit %s
+        """, (retain_days, max_rows))

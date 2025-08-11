@@ -12,12 +12,25 @@ def _hours_since(dt_iso):
     return max(0.0, (now - dt).total_seconds() / 3600)
 
 def compute_score(task: dict, rules: dict) -> float:
+    # Freeze "now" to prevent drift within single evaluation
+    now = datetime.now(timezone.utc)
+    
+    def _parse_iso(s):
+        if not s:
+            return None
+        s = s.replace("Z", "+00:00")
+        try:
+            return datetime.fromisoformat(s)
+        except Exception:
+            return None
+
     client_cfg = rules.get("clients", {}).get(task.get("client", ""), {})
     imp_bias = client_cfg.get("importance_bias", 1.0)
 
     # Accept both 'due_at' and 'deadline'
     due_iso = task.get("due_at") or task.get("deadline")
-    hrs_to_deadline = _hours_until(due_iso)
+    due_dt = _parse_iso(due_iso)
+    hrs_to_deadline = None if not due_dt else (due_dt - now).total_seconds() / 3600.0
 
     # Continuous urgency:
     # - If overdue (hrs < 0): treat as max urgency 1.0
@@ -35,12 +48,15 @@ def compute_score(task: dict, rules: dict) -> float:
     
     # FIX: Invert effort factor to favor smaller tasks (small wins)
     effort_factor = max(0.0, min(1.0, 1 - (task.get("effort_hours", 1.0) / 8.0)))
-    freshness = max(0.0, min(1.0, 1 - (_hours_since(task["created_at"]) / 168.0)))
+    
+    # Use frozen "now" for consistent time calculations
+    created_dt = _parse_iso(task.get("created_at") or task.get("ingested_at"))
+    hours_since_created = None if not created_dt else (now - created_dt).total_seconds() / 3600.0
+    freshness = 0.0 if hours_since_created is None else max(0.0, min(1.0, 1 - (hours_since_created / 168.0)))
 
     sla_hours = client_cfg.get("sla_hours", 72)
     # FIX: Correct SLA pressure calculation - hours left in SLA window
-    hours_since_created = _hours_since(task["created_at"])
-    hours_left_in_sla = max(0.0, sla_hours - hours_since_created)
+    hours_left_in_sla = 0.0 if hours_since_created is None else max(0.0, sla_hours - hours_since_created)
     sla_pressure = max(0.0, min(1.0, 1 - (hours_left_in_sla / sla_hours)))
 
     recent_progress_inv = max(0.0, min(1.0, 1 - task.get("recent_progress", 0.0)))

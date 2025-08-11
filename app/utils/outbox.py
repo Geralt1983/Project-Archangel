@@ -93,8 +93,8 @@ class OutboxManager:
     def mark_failed(self, ob_id: int, retry_in_seconds: int, error: str):
         conn = self.conn_factory()
         with conn.cursor() as c:
-            # Allow immediate eligibility when retry_in_seconds == 0
-            next_at = _now() + timedelta(seconds=max(0, int(retry_in_seconds)))
+            s = max(0, int(retry_in_seconds))  # 0 => immediate eligibility
+            next_at = _now() + timedelta(seconds=s)
             c.execute("""
             update outbox
                set status='failed',
@@ -137,6 +137,8 @@ class OutboxManager:
                     next_retry_at=r[8],
                     error=r[9],
                 ))
+            # simple metric
+            print(f"[metrics] outbox.pick_batch count={len(ops)}")
             return ops
 
     def get_stats(self) -> Dict[str, int]:
