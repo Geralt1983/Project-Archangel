@@ -1,9 +1,12 @@
 from __future__ import annotations
 import json
 import hashlib
+import threading
 from dataclasses import dataclass, field
 from datetime import datetime, timezone, timedelta
 from typing import Callable, Optional, List, Dict, Any
+
+from app.db_pg import get_db_config
 
 
 def _now():
@@ -65,37 +68,72 @@ class OutboxManager:
     """
     def __init__(self, conn_factory: Callable):
         self.conn_factory = conn_factory
+        self._lock = threading.Lock()
 
     # enqueue before making any external call
     def enqueue(self, operation_type: str, endpoint: str, request: Dict[str, Any],
                 headers: Optional[Dict[str, Any]] = None, idempotency_key: Optional[str] = None) -> str:
+        _, IS_SQLITE = get_db_config()
         conn = self.conn_factory()
         headers = headers or {}
         idem = idempotency_key or make_idempotency_key(operation_type, endpoint, request)
-        with conn.cursor() as c:
-            c.execute("""
+        c = conn.cursor()
+        if IS_SQLITE:
+            sql = """
+            insert into outbox(operation_type, endpoint, request, headers, idempotency_key, status)
+            values(?,?,?,?,?,'pending')
+            on conflict (idempotency_key) do nothing
+            """
+        else:
+            sql = """
             insert into outbox(operation_type, endpoint, request, headers, idempotency_key, status)
             values(%s,%s,%s::jsonb,%s::jsonb,%s,'pending')
             on conflict (idempotency_key) do nothing
-            """, (operation_type, endpoint, json.dumps(request), json.dumps(headers), idem))
+            """
+        c.execute(sql, (operation_type, endpoint, json.dumps(request), json.dumps(headers), idem))
+        if IS_SQLITE:
+            conn.commit()
         return idem
 
     def mark_inflight(self, ob_id: int):
+        _, IS_SQLITE = get_db_config()
         conn = self.conn_factory()
-        with conn.cursor() as c:
-            c.execute("update outbox set status='inflight', updated_at=now() where id=%s", (ob_id,))
+        c = conn.cursor()
+        now_fn = "datetime('now')" if IS_SQLITE else "now()"
+        placeholder = "?" if IS_SQLITE else "%s"
+        c.execute(f"update outbox set status='inflight', updated_at={now_fn} where id={placeholder}", (ob_id,))
+        if IS_SQLITE:
+            conn.commit()
 
     def mark_delivered(self, ob_id: int):
+        _, IS_SQLITE = get_db_config()
         conn = self.conn_factory()
-        with conn.cursor() as c:
-            c.execute("update outbox set status='delivered', updated_at=now() where id=%s", (ob_id,))
+        c = conn.cursor()
+        now_fn = "datetime('now')" if IS_SQLITE else "now()"
+        placeholder = "?" if IS_SQLITE else "%s"
+        c.execute(f"update outbox set status='delivered', updated_at={now_fn} where id={placeholder}", (ob_id,))
+        if IS_SQLITE:
+            conn.commit()
 
     def mark_failed(self, ob_id: int, retry_in_seconds: int, error: str):
+        _, IS_SQLITE = get_db_config()
         conn = self.conn_factory()
-        with conn.cursor() as c:
-            s = max(0, int(retry_in_seconds))  # 0 => immediate eligibility
-            next_at = _now() + timedelta(seconds=s)
-            c.execute("""
+        c = conn.cursor()
+        s = max(0, int(retry_in_seconds))  # 0 => immediate eligibility
+        next_at = _now() + timedelta(seconds=s)
+
+        if IS_SQLITE:
+            sql = """
+            update outbox
+               set status='failed',
+                   retry_count=retry_count+1,
+                   next_retry_at=?,
+                   error=?,
+                   updated_at=datetime('now')
+             where id=?
+            """
+        else:
+            sql = """
             update outbox
                set status='failed',
                    retry_count=retry_count+1,
@@ -103,25 +141,52 @@ class OutboxManager:
                    error=%s,
                    updated_at=now()
              where id=%s
-            """, (next_at, str(error)[:2000], ob_id))
+            """
+        params = (next_at, str(error)[:2000], ob_id)
+        if IS_SQLITE:
+            # for sqlite, must be string
+            params = (next_at.strftime('%Y-%m-%d %H:%M:%S'), str(error)[:2000], ob_id)
+
+        c.execute(sql, params)
+        if IS_SQLITE:
+            conn.commit()
 
     def dead_letter(self, ob_id: int, error: str):
+        _, IS_SQLITE = get_db_config()
         conn = self.conn_factory()
-        with conn.cursor() as c:
-            c.execute("update outbox set status='dead', error=%s, updated_at=now() where id=%s", (error[:2000], ob_id))
+        c = conn.cursor()
+        now_fn = "datetime('now')" if IS_SQLITE else "now()"
+        placeholder = "?" if IS_SQLITE else "%s"
+        c.execute(f"update outbox set status='dead', error={placeholder}, updated_at={now_fn} where id={placeholder}", (error[:2000], ob_id))
+        if IS_SQLITE:
+            conn.commit()
 
     def pick_batch(self, limit: int = 10) -> List[OutboxOperation]:
         """Select ready items with row locking to avoid contention across workers."""
-        conn = self.conn_factory()
-        with conn.cursor() as c:
-            c.execute("""
-            select id, operation_type, endpoint, request, headers, idempotency_key, status, retry_count, next_retry_at, error
-            from outbox
-            where (status='pending' or (status='failed' and (next_retry_at is null or next_retry_at <= now())))
+        # Note: for sqlite, this is not concurrent. The lock serializes workers.
+        with self._lock:
+            _, IS_SQLITE = get_db_config()
+            conn = self.conn_factory()
+            c = conn.cursor()
+
+            if IS_SQLITE:
+                sql = """
+                select id, operation_type, endpoint, request, headers, idempotency_key, status, retry_count, next_retry_at, error
+                from outbox
+                where (status='pending' or (status='failed' and (next_retry_at is null or next_retry_at <= datetime('now'))))
             order by created_at asc
-            for update skip locked
-            limit %s
-            """, (limit,))
+            limit ?
+            """
+            else:
+                sql = """
+                select id, operation_type, endpoint, request, headers, idempotency_key, status, retry_count, next_retry_at, error
+                from outbox
+                where (status='pending' or (status='failed' and (next_retry_at is null or next_retry_at <= now())))
+                order by created_at asc
+                for update skip locked
+                limit %s
+                """
+            c.execute(sql, (limit,))
             rows = c.fetchall()
             ops: List[OutboxOperation] = []
             for r in rows:
@@ -129,8 +194,8 @@ class OutboxManager:
                     id=r[0],
                     operation_type=r[1],
                     endpoint=r[2],
-                    request=r[3],
-                    headers=r[4],
+                    request=json.loads(r[3]) if IS_SQLITE else r[3],
+                    headers=json.loads(r[4]) if IS_SQLITE else r[4],
                     idempotency_key=r[5],
                     status=r[6],
                     retry_count=r[7],
@@ -143,11 +208,11 @@ class OutboxManager:
 
     def get_stats(self) -> Dict[str, int]:
         conn = self.conn_factory()
-        with conn.cursor() as c:
-            c.execute("""
-            select status, count(*) from outbox group by status
-            """)
-            out: Dict[str, int] = {}
-            for status, count in c.fetchall():
-                out[status] = int(count)
-            return out
+        c = conn.cursor()
+        c.execute("""
+        select status, count(*) from outbox group by status
+        """)
+        out: Dict[str, int] = {}
+        for status, count in c.fetchall():
+            out[status] = int(count)
+        return out

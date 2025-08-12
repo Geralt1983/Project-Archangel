@@ -6,11 +6,11 @@ from app.utils.outbox import OutboxManager, make_idempotency_key
 
 def _flush():
     conn = get_conn()
-    with conn.cursor() as c:
-        c.execute("delete from outbox")
+    c = conn.cursor()
+    c.execute("delete from outbox")
 
 def test_outbox_happy_path(monkeypatch):
-    os.environ.setdefault("DATABASE_URL", "postgresql://archangel:archangel@localhost:5432/archangel")
+    os.environ.setdefault("DATABASE_URL", "sqlite:///:memory:")
     init()
     _flush()
     ob = OutboxManager(get_conn)
@@ -42,7 +42,7 @@ def test_outbox_happy_path(monkeypatch):
     assert called["n"] == 1
 
 def test_outbox_retry_then_dead(monkeypatch):
-    os.environ.setdefault("DATABASE_URL", "postgresql://archangel:archangel@localhost:5432/archangel")
+    os.environ.setdefault("DATABASE_URL", "sqlite:///:memory:")
     init()
     _flush()
     ob = OutboxManager(get_conn)
