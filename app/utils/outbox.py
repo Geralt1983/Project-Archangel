@@ -6,8 +6,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone, timedelta
 from typing import Callable, Optional, List, Dict, Any
 
-from app.db_pg import get_db_config
-
+from app.db import get_db_config
 
 def _now():
     return datetime.now(timezone.utc)
@@ -174,9 +173,9 @@ class OutboxManager:
                 select id, operation_type, endpoint, request, headers, idempotency_key, status, retry_count, next_retry_at, error
                 from outbox
                 where (status='pending' or (status='failed' and (next_retry_at is null or next_retry_at <= datetime('now'))))
-            order by created_at asc
-            limit ?
-            """
+                order by created_at asc
+                limit ?
+                """
             else:
                 sql = """
                 select id, operation_type, endpoint, request, headers, idempotency_key, status, retry_count, next_retry_at, error

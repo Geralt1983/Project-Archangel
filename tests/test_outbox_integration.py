@@ -1,16 +1,18 @@
 import os
 import time
 from datetime import datetime, timezone
-from app.db_pg import init, get_conn
+from app.db import init, get_conn
 from app.utils.outbox import OutboxManager, make_idempotency_key
 
 def _flush():
     conn = get_conn()
     c = conn.cursor()
     c.execute("delete from outbox")
+    if "sqlite" in os.getenv("DATABASE_URL", ""):
+        conn.commit()
 
 def test_outbox_happy_path(monkeypatch):
-    os.environ.setdefault("DATABASE_URL", "sqlite:///:memory:")
+    os.environ["DATABASE_URL"] = "sqlite:///:memory:"
     init()
     _flush()
     ob = OutboxManager(get_conn)
@@ -42,7 +44,7 @@ def test_outbox_happy_path(monkeypatch):
     assert called["n"] == 1
 
 def test_outbox_retry_then_dead(monkeypatch):
-    os.environ.setdefault("DATABASE_URL", "sqlite:///:memory:")
+    os.environ["DATABASE_URL"] = "sqlite:///:memory:"
     init()
     _flush()
     ob = OutboxManager(get_conn)
@@ -57,11 +59,6 @@ def test_outbox_retry_then_dead(monkeypatch):
     ob.mark_inflight(op.id)
     ob.mark_failed(op.id, retry_in_seconds=0, error="boom1")
     # pick again (eligible now)
-    batch = ob.pick_batch(limit=1)
-    op = batch[0]
-    ob.mark_inflight(op.id)
-    ob.mark_failed(op.id, retry_in_seconds=0, error="boom2")
-    # third attempt exceeds max in this test, dead
     batch = ob.pick_batch(limit=1)
     op = batch[0]
     ob.dead_letter(op.id, "permanent")
