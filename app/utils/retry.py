@@ -58,3 +58,4 @@ def default_httpx_retryable(statuses: Iterable[int] = (429, 500, 502, 503, 504))
         return False
 
     return _pred
+
