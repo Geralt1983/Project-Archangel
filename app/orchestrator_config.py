@@ -6,8 +6,8 @@ Handles loading, saving, and validating orchestrator configurations.
 import json
 import os
 from pathlib import Path
-from typing import Dict, Any
-from dataclasses import dataclass, asdict
+from typing import Dict, Any, Optional
+from dataclasses import dataclass, asdict, field
 import logging
 
 logger = logging.getLogger(__name__)
@@ -39,51 +39,35 @@ class StalenessConfig:
 class WIPConfig:
     """Work-in-Progress limits configuration"""
     default_limit: int = 3
-    limits_by_role: Dict[str, int] = None
+    limits_by_role: Dict[str, int] = field(
+        default_factory=lambda: {
+            'junior': 2,
+            'senior': 5,
+            'lead': 8,
+        }
+    )
     load_balance_threshold: float = 0.8
-    
-    def __post_init__(self):
-        if self.limits_by_role is None:
-            self.limits_by_role = {
-                'junior': 2,
-                'senior': 5,
-                'lead': 8
-            }
 
 @dataclass
 class ClientConfig:
     """Client-specific configuration"""
     default_daily_cap_hours: int = 8
-    client_caps: Dict[str, int] = None
+    client_caps: Dict[str, int] = field(default_factory=dict)
     fairness_lookback_hours: int = 168  # 1 week
-    
-    def __post_init__(self):
-        if self.client_caps is None:
-            self.client_caps = {}
 
 @dataclass
 class OrchestratorConfig:
     """Complete orchestrator configuration"""
     version: str = "1.0.0"
-    scoring_weights: ScoringWeights = None
-    staleness: StalenessConfig = None
-    wip: WIPConfig = None
-    client: ClientConfig = None
+    scoring_weights: ScoringWeights = field(default_factory=ScoringWeights)
+    staleness: StalenessConfig = field(default_factory=StalenessConfig)
+    wip: WIPConfig = field(default_factory=WIPConfig)
+    client: ClientConfig = field(default_factory=ClientConfig)
     
     # Advanced features
     enable_simulation_mode: bool = False
     enable_ml_predictions: bool = False
     debug_mode: bool = False
-    
-    def __post_init__(self):
-        if self.scoring_weights is None:
-            self.scoring_weights = ScoringWeights()
-        if self.staleness is None:
-            self.staleness = StalenessConfig()
-        if self.wip is None:
-            self.wip = WIPConfig()
-        if self.client is None:
-            self.client = ClientConfig()
     
     def validate(self) -> Dict[str, Any]:
         """Validate entire configuration"""

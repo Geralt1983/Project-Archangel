@@ -8,7 +8,7 @@ import logging
 from abc import ABC, abstractmethod
 from datetime import datetime, timezone, timedelta
 from typing import Dict, List, Optional, Any, Callable, AsyncIterator
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, field
 from enum import Enum
 
 class ProviderType(Enum):
@@ -56,10 +56,10 @@ class StandardTask:
     updated_at: Optional[datetime]
     deadline: Optional[datetime]
     effort_hours: float
-    labels: List[str]
-    subtasks: List[str]
-    checklist: List[str]
-    metadata: Dict[str, Any]
+    labels: List[str] = field(default_factory=list)
+    subtasks: List[str] = field(default_factory=list)
+    checklist: List[str] = field(default_factory=list)
+    metadata: Dict[str, Any] = field(default_factory=dict)
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for JSON serialization"""

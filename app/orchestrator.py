@@ -8,7 +8,7 @@ import json
 import sqlite3
 from datetime import datetime, timezone, timedelta
 from typing import Dict, List, Optional, Tuple, Any
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, field
 from enum import Enum
 from pathlib import Path
 
@@ -47,15 +47,9 @@ class TaskContext:
     # Metadata
     effort_hours: float
     deadline: Optional[datetime] = None
-    created_at: datetime = None
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     assignee: Optional[str] = None
-    dependencies: List[str] = None
-    
-    def __post_init__(self):
-        if self.created_at is None:
-            self.created_at = datetime.now(timezone.utc)
-        if self.dependencies is None:
-            self.dependencies = []
+    dependencies: List[str] = field(default_factory=list)
 
 @dataclass 
 class OrchestrationDecision:

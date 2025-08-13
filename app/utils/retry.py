@@ -1,6 +1,7 @@
+import asyncio
 import random
 import time
-from typing import Callable, Iterable, Optional
+from typing import Callable, Iterable, Optional, Awaitable, TypeVar
 
 
 def next_backoff(retry_count: int, base: float = 0.5, cap: float = 60.0, jitter: float = 0.3) -> float:
@@ -35,6 +36,26 @@ def retry(fn: Callable, max_tries: int = 5, retry_if: Optional[Callable[[BaseExc
             time.sleep(next_backoff(tries))
 
 
+T = TypeVar("T")
+
+
+async def retry_async(
+    fn: Callable[[], Awaitable[T]],
+    max_tries: int = 5,
+    retry_if: Optional[Callable[[BaseException], bool]] = None,
+) -> T:
+    """Retry an async callable with backoff."""
+    tries = 0
+    while True:
+        try:
+            return await fn()
+        except BaseException as e:  # narrow via retry_if
+            tries += 1
+            if tries >= max_tries or (retry_if and not retry_if(e)):
+                raise
+            await asyncio.sleep(next_backoff(tries))
+
+
 # Optional helper for httpx without hard dependency
 def default_httpx_retryable(statuses: Iterable[int] = (429, 500, 502, 503, 504)):
     try:
@@ -58,4 +79,3 @@ def default_httpx_retryable(statuses: Iterable[int] = (429, 500, 502, 503, 504))
         return False
 
     return _pred
-
