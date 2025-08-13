@@ -10,9 +10,8 @@ import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__)))
 
-import json
-from datetime import datetime, timezone, timedelta
-from app.models import TaskIntake, Task, TaskStatus
+from datetime import datetime, timezone
+from app.models import TaskIntake, Task
 from app.config import load_rules, get_task_type_config, get_client_config
 
 def normalize_task_input(task_input: TaskIntake) -> Task:
@@ -279,7 +278,7 @@ def demo_task_processing():
             print(f"   • {subtask.title}{effort}")
         
         processed_tasks.append(task)
-        print(f"\n✅ Task processed successfully!")
+        print("\n✅ Task processed successfully!")
     
     # Step 7: Show final prioritization
     print(f"\n{'='*60}")

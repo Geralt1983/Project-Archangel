@@ -1,4 +1,3 @@
-from datetime import datetime, timezone
 from .config import load_rules
 
 def plan_today(tasks: list[dict], available_hours_today: float, fairness_deficits: dict[str, float] = None) -> dict[str, list[str]]:

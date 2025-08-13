@@ -1,4 +1,5 @@
-import uuid, datetime as dt
+import uuid
+import datetime as dt
 from .scoring import compute_score
 from .subtasks import build_checklist_and_subtasks
 from .config import load_rules

@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-import argparse, json, os, subprocess, time, hashlib, shutil
+import argparse
+import json
+import subprocess
+import time
+import hashlib
 from pathlib import Path
 
 def run(cmd, cwd=None, check=True):

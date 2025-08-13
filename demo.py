@@ -6,7 +6,6 @@ This script demonstrates the core functionality without requiring
 external services like ClickUp.
 """
 
-import json
 from datetime import datetime, timezone, timedelta
 from app.models import TaskIntake, Task
 from app.triage import normalize_task_input, classify_task, fill_task_defaults
@@ -103,7 +102,7 @@ def demo_task_processing():
             print(f"   • {subtask.title}{effort}")
         
         processed_tasks.append(task)
-        print(f"\n✅ Task processed successfully!")
+        print("\n✅ Task processed successfully!")
     
     # Step 7: Show final prioritization
     print(f"\n{'='*60}")
@@ -127,7 +126,7 @@ def demo_task_processing():
     print(f"{'='*60}")
     
     for task in sorted_tasks[:2]:  # Show top 2 tasks
-        print(f"\n📤 Would create in ClickUp:")
+        print("\n📤 Would create in ClickUp:")
         print(f"   Title: {task.title}")
         print(f"   Description: {task.description}")
         print(f"   Tags: {', '.join(task.labels)}")
@@ -210,7 +209,7 @@ def demo_scoring_details():
     
     aging_boost = min(0.5, (hours_since_created / 24) * rules["defaults"]["aging_boost_per_day"] / 100)
     
-    print(f"\n📊 Score Components:")
+    print("\n📊 Score Components:")
     print(f"   Urgency (deadline): {urgency:.3f} (weight: {scoring_config['urgency_weight']:.2f})")
     print(f"   Importance + bias: {importance:.3f} (weight: {scoring_config['importance_weight']:.2f})")
     print(f"   Effort factor: {effort_factor:.3f} (weight: {scoring_config['effort_weight']:.2f})")  

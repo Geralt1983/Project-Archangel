@@ -2,9 +2,8 @@
 Basic tests to ensure CI pipeline works
 """
 
-import pytest
 from app.utils.retry import next_backoff, retry
-from app.utils.outbox import OutboxOperation, OutboxManager, make_idempotency_key
+from app.utils.outbox import OutboxOperation, make_idempotency_key
 
 
 def test_next_backoff():

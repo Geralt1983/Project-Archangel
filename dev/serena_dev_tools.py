@@ -4,7 +4,6 @@ Integration between Claude Code MCP and Project Archangel HTTP API
 """
 
 import httpx
-import json
 from typing import Dict, List, Any
 
 class SerenaDevTools:
