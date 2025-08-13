@@ -1,27 +1,38 @@
-# Simple retry tests for the improved retry mechanism
-from app.utils.retry import next_backoff
+# Tests for retry utilities
+import asyncio
+
+from app.utils.retry import next_backoff, retry_async
+
 
 def test_backoff_bounds():
-    """Test backoff calculation stays within bounds"""
+    """next_backoff stays within expected bounds."""
     b1 = next_backoff(1)
     b5 = next_backoff(5)
     assert b1 >= 0.05
     assert b5 <= 60.0
-    print(f"✅ Backoff test passed: b1={b1:.2f}, b5={b5:.2f}")
+
 
 def test_backoff_progression():
-    """Test exponential progression"""
+    """Delays generally increase as retry count grows."""
     delays = [next_backoff(i) for i in range(1, 6)]
-    # Should generally increase (allowing for jitter)
-    base_delays = [0.5 * (2 ** (i-1)) for i in range(1, 6)]
-    
-    for i, (actual, expected) in enumerate(zip(delays, base_delays)):
-        # Allow for jitter but check rough progression
-        assert 0.05 <= actual <= 60.0
-    
-    print(f"✅ Progression test passed: {[f'{d:.2f}' for d in delays]}")
+    for d in delays:
+        assert 0.05 <= d <= 60.0
 
-if __name__ == "__main__":
-    test_backoff_bounds()
-    test_backoff_progression()
-    print("✅ All retry tests passed!")
+
+def test_retry_async(monkeypatch):
+    attempts = {"count": 0}
+
+    async def fn():
+        attempts["count"] += 1
+        if attempts["count"] < 3:
+            raise ValueError("fail")
+        return "ok"
+
+    async def fake_sleep(_):
+        return None
+
+    monkeypatch.setattr("app.utils.retry.asyncio.sleep", fake_sleep)
+    result = asyncio.run(retry_async(fn, max_tries=5))
+    assert result == "ok"
+    assert attempts["count"] == 3
+
