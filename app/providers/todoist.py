@@ -15,9 +15,15 @@ class TodoistAdapter(ProviderAdapter):
         })
 
     def create_task(self, task):
-        payload = {"content": task["title"], "description": task.get("description",""), "project_id": self.project_id}
+        payload = {
+            "content": task["title"],
+            "description": task.get("description", ""),
+            "project_id": self.project_id,
+        }
         if task.get("deadline"):
             payload["due_datetime"] = task["deadline"]
+        if task.get("priority"):
+            payload["priority"] = task["priority"]
         r = self.client.post(f"{TD_API}/tasks", json=payload)
         r.raise_for_status()
         return r.json()
@@ -45,6 +51,7 @@ class TodoistAdapter(ProviderAdapter):
             self.client.post(f"{TD_API}/tasks/{external_id}/close")
 
     def verify_webhook(self, headers, raw_body):
-        sig = headers.get("x-todoist-hmac-sha256","")
-        mac = hmac.new(self.webhook_secret.encode(), raw_body, hashlib.sha256).hexdigest()
-        return hmac.compare_digest(sig, mac)
+        sig = headers.get("x-todoist-hmac-sha256", "")
+        mac = hmac.new(self.webhook_secret.encode(), raw_body, hashlib.sha256).digest()
+        mac_b64 = base64.b64encode(mac).decode()
+        return hmac.compare_digest(sig, mac_b64)
