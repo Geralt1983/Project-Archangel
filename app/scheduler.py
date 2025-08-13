@@ -1,4 +1,5 @@
-import os, datetime as dt
+import os
+import datetime as dt
 from .db_pg import fetch_open_tasks, save_task
 from .scoring import compute_score
 from .config import load_rules

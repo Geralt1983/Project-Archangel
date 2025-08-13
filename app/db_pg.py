@@ -1,7 +1,6 @@
 import os
 import json
 import threading
-from contextlib import contextmanager
 
 def get_db_config():
     database_url = os.getenv("DATABASE_URL")

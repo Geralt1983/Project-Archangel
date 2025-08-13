@@ -3,10 +3,8 @@ Smart Configuration Optimizer
 Leverages both Serena MCP (via Claude Code) and HTTP API for intelligent config management
 """
 
-import yaml
-import json
 import httpx
-from typing import Dict, List, Any, Optional
+from typing import Dict, Any
 from datetime import datetime, timedelta
 
 class SmartConfigOptimizer:
@@ -24,7 +22,7 @@ class SmartConfigOptimizer:
         """
         try:
             # Get recent task data
-            response = self.client.get(f"/audit/export?limit=500")
+            response = self.client.get("/audit/export?limit=500")
             tasks = response.json()["tasks"]
             
             # Get weekly summaries

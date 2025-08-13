@@ -1,4 +1,6 @@
-import os, hmac, hashlib, httpx
+import hmac
+import hashlib
+import httpx
 from .base import ProviderAdapter
 
 TRELLO_API = "https://api.trello.com/1"

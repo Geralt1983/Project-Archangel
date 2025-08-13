@@ -4,7 +4,6 @@ For Claude Code sessions with Serena MCP integration
 """
 
 import yaml
-import json
 from pathlib import Path
 
 class InteractiveOptimizer:

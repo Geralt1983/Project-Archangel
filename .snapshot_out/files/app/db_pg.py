@@ -1,7 +1,6 @@
 import os
 import json
 import threading
-from contextlib import contextmanager
 
 try:
     import psycopg2

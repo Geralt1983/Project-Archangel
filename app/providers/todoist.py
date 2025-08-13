@@ -1,4 +1,6 @@
-import os, hmac, hashlib, base64, httpx
+import hmac
+import hashlib
+import httpx
 from .base import ProviderAdapter
 
 TD_API = "https://api.todoist.com/rest/v2"

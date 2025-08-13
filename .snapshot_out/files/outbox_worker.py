@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 import argparse
-import json
 from typing import Dict, Any
 from app.db_pg import init, get_conn
 from app.utils.outbox import OutboxManager

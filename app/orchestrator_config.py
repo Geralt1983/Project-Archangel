@@ -6,7 +6,7 @@ Handles loading, saving, and validating orchestrator configurations.
 import json
 import os
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 from dataclasses import dataclass, asdict
 import logging
 

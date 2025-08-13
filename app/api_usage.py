@@ -3,7 +3,6 @@ from pathlib import Path
 import json
 import time
 import os
-from typing import Dict, Any, Optional
 
 router = APIRouter(prefix="/usage", tags=["usage"])
 
@@ -154,9 +153,9 @@ def configure_monitor(log_file: str = ".local/usage/latest.json"):
             "log_file": str(log_path),
             "config": config,
             "next_steps": [
-                f"Start monitor with: make usage",
+                "Start monitor with: make usage",
                 f"Configure monitor to write to {log_path}",
-                f"Check status with: curl localhost:8000/usage/status"
+                "Check status with: curl localhost:8000/usage/status"
             ]
         }
         

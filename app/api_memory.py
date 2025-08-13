@@ -1,5 +1,4 @@
 from fastapi import APIRouter, Query, HTTPException
-from typing import Optional
 from app.db_pg import get_conn
 
 router = APIRouter(prefix="/memory", tags=["memory"])

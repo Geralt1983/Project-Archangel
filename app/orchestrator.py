@@ -371,7 +371,7 @@ class TaskOrchestrator:
         # Persist decision for audit trail (async operation, don't wait)
         try:
             self.state_manager.save_decision(decision)
-        except Exception as e:
+        except Exception:
             # Log but don't fail orchestration
             pass
         

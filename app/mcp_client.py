@@ -1,4 +1,5 @@
-import os, httpx
+import os
+import httpx
 
 BASE = os.getenv("SERENA_BASE_URL", "")
 KEY = os.getenv("SERENA_API_KEY", "")
