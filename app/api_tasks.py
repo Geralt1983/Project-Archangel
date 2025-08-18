@@ -24,7 +24,7 @@ from app.scoring import compute_score
 from app.triage_serena import triage_with_serena
 from app.audit import log_event
 from app.utils.outbox import OutboxManager
-from app.providers.base import BaseAdapter
+from app.providers.base import ProviderAdapter
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -111,7 +111,7 @@ class TaskStatsResponse(BaseModel):
     overdue_count: int
 
 # Utility functions
-def get_provider_adapter(provider_name: str) -> Optional[BaseAdapter]:
+def get_provider_adapter(provider_name: str) -> Optional[ProviderAdapter]:
     """Get provider adapter by name"""
     from app.api import ADAPTERS
     try:
