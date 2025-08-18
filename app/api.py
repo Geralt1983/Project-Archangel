@@ -16,6 +16,20 @@ app.include_router(outbox_router)
 app.include_router(memory_router)
 app.include_router(usage_router)
 
+# Observability endpoints
+from prometheus_client import CollectorRegistry, CONTENT_TYPE_LATEST, generate_latest
+
+@app.get("/healthz")
+def healthz():
+    return {"status": "ok"}
+
+@app.get("/metrics")
+def metrics():
+    registry = CollectorRegistry.auto()
+    data = generate_latest(registry)
+    from fastapi.responses import Response
+    return Response(content=data, media_type=CONTENT_TYPE_LATEST)
+
 def clickup():
     return ClickUpAdapter(
         token=os.getenv("CLICKUP_TOKEN",""),
