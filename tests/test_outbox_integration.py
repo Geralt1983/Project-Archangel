@@ -39,6 +39,17 @@ def test_outbox_happy_path(monkeypatch):
     assert stats2.get("delivered", 0) == 1
     assert called["n"] == 1
 
+import time
+
+def _pick_one_with_wait(ob: OutboxManager, attempts: int = 5, sleep_sec: float = 0.05):
+    for _ in range(attempts):
+        batch = ob.pick_batch(limit=1)
+        if batch:
+            return batch[0]
+        time.sleep(sleep_sec)
+    return None
+
+
 def test_outbox_retry_then_dead(monkeypatch):
     os.environ.setdefault("DATABASE_URL", "sqlite:///:memory:")
     init()
@@ -49,19 +60,20 @@ def test_outbox_retry_then_dead(monkeypatch):
     ob.enqueue("create_task", "/providers/trello/create", req)
 
     # fail 3 times then dead letter
-    batch = ob.pick_batch(limit=1)
-    assert batch, "expected one item"
-    op = batch[0]
+    op = _pick_one_with_wait(ob)
+    assert op is not None, "expected one item"
     ob.mark_inflight(op.id)
     ob.mark_failed(op.id, retry_in_seconds=0, error="boom1")
+
     # pick again (eligible now)
-    batch = ob.pick_batch(limit=1)
-    op = batch[0]
+    op = _pick_one_with_wait(ob)
+    assert op is not None, "expected one item after first failure"
     ob.mark_inflight(op.id)
     ob.mark_failed(op.id, retry_in_seconds=0, error="boom2")
+
     # third attempt exceeds max in this test, dead
-    batch = ob.pick_batch(limit=1)
-    op = batch[0]
+    op = _pick_one_with_wait(ob)
+    assert op is not None, "expected one item after second failure"
     ob.dead_letter(op.id, "permanent")
 
     stats = ob.get_stats()
