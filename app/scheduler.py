@@ -8,7 +8,6 @@ from .providers.clickup import ClickUpAdapter
 
 def daily_reeval():
     rules = load_rules()
-    now = dt.datetime.utcnow().isoformat() + "Z"
     tasks = fetch_open_tasks()
     for t in tasks:
         t["score"] = compute_score(t, rules)

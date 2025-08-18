@@ -112,11 +112,11 @@ def test_urgency_flags_set():
     
     rules = {"clients": {"test-client": {"importance_bias": 1.0, "sla_hours": 72}}}
     
-    score = compute_score(urgent_task, rules)
+    _ = compute_score(urgent_task, rules)
     
     # Check that urgency flags are set
     assert "deadline_within_24h" in urgent_task
-    assert urgent_task["deadline_within_24h"] == True
+    assert urgent_task["deadline_within_24h"]
     assert "sla_pressure" in urgent_task
     assert isinstance(urgent_task["sla_pressure"], float)
 
@@ -139,7 +139,7 @@ def test_sla_pressure_calculation():
     
     rules = {"clients": {"test-client": {"importance_bias": 1.0, "sla_hours": 72}}}
     
-    score = compute_score(task, rules)
+    _ = compute_score(task, rules)
     
     # Should have significant SLA pressure (12 hours left out of 72)
     assert task["sla_pressure"] > 0.5, f"SLA pressure {task['sla_pressure']} should be > 0.5 with 12h left in 72h SLA"

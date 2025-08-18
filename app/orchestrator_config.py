@@ -6,9 +6,10 @@ Handles loading, saving, and validating orchestrator configurations.
 import json
 import os
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 from dataclasses import dataclass, asdict, field
 import logging
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -306,7 +307,6 @@ def save_orchestrator_config(config: OrchestratorConfig) -> bool:
     return success
 
 # Initialize on import
-from datetime import datetime
 if __name__ == "__main__":
     # CLI for config management
     import sys

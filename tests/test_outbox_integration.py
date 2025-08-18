@@ -1,4 +1,5 @@
 import os
+import time
 from app.db_pg import init, get_conn
 from app.utils.outbox import OutboxManager, make_idempotency_key
 
@@ -39,7 +40,6 @@ def test_outbox_happy_path(monkeypatch):
     assert stats2.get("delivered", 0) == 1
     assert called["n"] == 1
 
-import time
 
 def _pick_one_with_wait(ob: OutboxManager, attempts: int = 5, sleep_sec: float = 0.05):
     for _ in range(attempts):

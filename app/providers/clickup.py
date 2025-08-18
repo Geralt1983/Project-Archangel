@@ -8,7 +8,8 @@ from ..utils.retry import retry_with_backoff, RetryConfig, RateLimitError, Serve
 CLICKUP_API = "https://api.clickup.com/api/v2"
 
 def _to_epoch_ms(iso: str | None) -> int | None:
-    if not iso: return None
+    if not iso:
+        return None
     dt = datetime.fromisoformat(iso.replace("Z", "+00:00"))
     return int(dt.replace(tzinfo=timezone.utc).timestamp() * 1000)
 

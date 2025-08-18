@@ -46,6 +46,7 @@ class TrelloAdapter(ProviderAdapter):
 
     def verify_webhook(self, headers, raw_body):
         sig = headers.get("x-trello-webhook")
-        if not sig: return False
+        if not sig:
+            return False
         mac = hmac.new(self.webhook_secret.encode(), raw_body, hashlib.sha1).hexdigest()
         return hmac.compare_digest(sig, mac)

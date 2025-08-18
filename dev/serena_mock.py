@@ -6,11 +6,21 @@ def triage(envelope: dict):
     t = envelope["task"]
     name = t["title"].lower()
     if any(k in name for k in ["fix","error","bug","500"]):
-        tt = "bugfix"; chk = ["Confirm repro","Assess impact","Patch","Regression test","Notify client"]
-        subs = [{"title":"Draft fix plan"},{"title":"Implement"},{"title":"Review"},{"title":"Deliver"},{"title":"Follow up"}]
+        tt = "bugfix"
+        chk = ["Confirm repro","Assess impact","Patch","Regression test","Notify client"]
+        subs = [
+            {"title":"Draft fix plan"},
+            {"title":"Implement"},
+            {"title":"Review"},
+            {"title":"Deliver"},
+            {"title":"Follow up"}
+        ]
         imp = 4
     else:
-        tt = "general"; chk = ["Clarify ask","Define done","Confirm deadline"]; subs = [{"title":"Draft"},{"title":"Review"}]; imp = 3
+        tt = "general"
+        chk = ["Clarify ask","Define done","Confirm deadline"]
+        subs = [{"title":"Draft"},{"title":"Review"}]
+        imp = 3
     return {
       "task_type": tt,
       "labels": [tt],
