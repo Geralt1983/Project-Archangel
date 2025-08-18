@@ -3,14 +3,17 @@
 **AI-Powered Task Orchestration System**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.104+-green.svg)](https://fastapi.tiangolo.com/)
+[![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.116.1+-green.svg)](https://fastapi.tiangolo.com/)
+[![Pydantic](https://img.shields.io/badge/Pydantic-2.11.7+-purple.svg)](https://docs.pydantic.dev/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15+-blue.svg)](https://www.postgresql.org/)
 
 Project Archangel intelligently balances workload across multiple task management providers (ClickUp, Trello, Todoist) using sophisticated scoring algorithms, outbox patterns, and reliability mechanisms.
 
 ## 🌟 Features
 
+- **🚀 Modern Python Stack**: Powered by Python 3.12+, FastAPI 0.116.1+, and Pydantic 2.11.7+
+- **🧠 AI Provider Agnostic**: Extensible to state-of-the-art LLMs like OpenAI GPT-4o, Anthropic Claude 3.5, Meta Llama 3.1, and Google Gemini 1.5
 - **🎯 Intelligent Task Routing**: AI-powered scoring algorithm routes tasks to optimal providers
 - **⚖️ Workload Balancing**: Automatic load distribution across ClickUp, Trello, and Todoist
 - **🔄 Reliable Delivery**: Outbox pattern ensures exactly-once task delivery
@@ -22,7 +25,7 @@ Project Archangel intelligently balances workload across multiple task managemen
 
 ### Prerequisites
 
-- **Python 3.11+**
+- **Python 3.12+**
 - **Docker & Docker Compose**
 - **PostgreSQL 15+**
 - **Redis 7+**
