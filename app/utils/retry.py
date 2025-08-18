@@ -1,7 +1,55 @@
 import asyncio
+import logging
 import random
 import time
-from typing import Callable, Iterable, Optional, Awaitable, TypeVar
+from typing import Callable, Iterable, Optional, Awaitable, TypeVar, Union, Any
+from functools import wraps
+
+# Configure logging
+logger = logging.getLogger(__name__)
+
+
+class RateLimitError(Exception):
+    """Raised when API rate limit is exceeded"""
+    pass
+
+
+class ServerError(Exception):
+    """Raised when server returns 5xx error"""
+    pass
+
+
+class RetryConfig:
+    """
+    Configuration for retry behavior.
+    
+    Attributes:
+        max_tries: Maximum number of retry attempts
+        base_delay: Base delay in seconds for exponential backoff  
+        max_delay: Maximum delay in seconds (cap for backoff)
+        jitter: Jitter factor (0-1) to add randomness to delays
+    """
+    
+    def __init__(
+        self, 
+        max_tries: int = 5, 
+        base_delay: float = 0.5, 
+        max_delay: float = 60.0, 
+        jitter: float = 0.3
+    ) -> None:
+        if max_tries < 1:
+            raise ValueError("max_tries must be at least 1")
+        if base_delay < 0:
+            raise ValueError("base_delay must be non-negative")
+        if max_delay < base_delay:
+            raise ValueError("max_delay must be >= base_delay")
+        if not 0 <= jitter <= 1:
+            raise ValueError("jitter must be between 0 and 1")
+            
+        self.max_tries = max_tries
+        self.base_delay = base_delay
+        self.max_delay = max_delay
+        self.jitter = jitter
 
 
 def next_backoff(retry_count: int, base: float = 0.5, cap: float = 60.0, jitter: float = 0.3) -> float:
@@ -79,3 +127,55 @@ def default_httpx_retryable(statuses: Iterable[int] = (429, 500, 502, 503, 504))
         return False
 
     return _pred
+
+
+def retry_with_backoff(config: Optional[RetryConfig] = None):
+    """Decorator for retrying functions with exponential backoff"""
+    if config is None:
+        config = RetryConfig()
+    
+    def decorator(func):
+        if asyncio.iscoroutinefunction(func):
+            @wraps(func)
+            async def async_wrapper(*args, **kwargs):
+                return await retry_async(
+                    lambda: func(*args, **kwargs),
+                    max_tries=config.max_tries,
+                    retry_if=_should_retry_http_error
+                )
+            return async_wrapper
+        else:
+            @wraps(func)
+            def sync_wrapper(*args, **kwargs):
+                return retry(
+                    lambda: func(*args, **kwargs),
+                    max_tries=config.max_tries,
+                    retry_if=_should_retry_http_error
+                )
+            return sync_wrapper
+    
+    return decorator
+
+
+def _should_retry_http_error(e: BaseException) -> bool:
+    """Determine if an HTTP error should trigger a retry"""
+    try:
+        import httpx
+        if isinstance(e, httpx.HTTPStatusError):
+            status = e.response.status_code
+            # Retry on rate limits and server errors
+            if status == 429:
+                return True
+            if 500 <= status <= 599:
+                return True
+            return False
+        if isinstance(e, (httpx.ConnectError, httpx.ReadTimeout, httpx.WriteError)):
+            return True
+    except ImportError:
+        pass
+    
+    # For our custom exceptions
+    if isinstance(e, (RateLimitError, ServerError)):
+        return True
+    
+    return False

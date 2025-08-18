@@ -4,11 +4,11 @@ This file provides guidance to Claude Code when working with Project Archangel.
 
 ## Mission
 
-Project Archangel is an AI-powered task orchestration system that balances workload across providers (Amex, Charis, Chayah) using sophisticated scoring algorithms, outbox patterns, and reliability mechanisms.
+Project Archangel is an AI-powered task orchestration system that balances workload across providers (ClickUp, Trello, Todoist) using sophisticated scoring algorithms, outbox patterns, and reliability mechanisms.
 
 ## House Rules
 
-1. **Name Corrections**: Always use Amex (not Amit), Charis (not Chris), Chayah (not Chaya)
+1. **Provider Names**: ClickUp, Trello, and Todoist are the task management platforms
 2. **Timezone**: All times in PT (Pacific Time)
 3. **No Secrets**: Never log raw provider secrets, webhook bodies, or API tokens
 4. **Test First**: Always run `make test` before proposing changes
@@ -83,7 +83,7 @@ Before committing:
 1. `make test` - Run test suite
 2. `bash scripts/make_snapshot.sh` - Generate review bundle
 3. Verify no secrets in code
-4. Check for proper name usage (Amex, Charis, Chayah)
+4. Check for proper provider usage (ClickUp, Trello, Todoist)
 
 ## Guardrails
 
@@ -157,7 +157,7 @@ pre_task("session-123", "Rebalancing provider workload")
 post_edit("session-123", "app/scoring.py", "Adjusted urgency calculation")
 
 # Add decision traces
-notify("session-123", "Provider Amex overloaded, redistributing")
+notify("session-123", "Provider ClickUp overloaded, redistributing")
 
 # Log task completion
 post_task("session-123", "rebalance-001", "Moved 5 tasks, reduced variance by 40%")

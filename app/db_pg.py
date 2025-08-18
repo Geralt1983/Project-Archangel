@@ -1,49 +1,122 @@
 import os
 import json
 import threading
+import logging
+from typing import Optional, Tuple, Any, Union, Dict
 
-def get_db_config():
+# Configure logging
+logger = logging.getLogger(__name__)
+
+def get_db_config() -> Tuple[Optional[str], bool]:
+    """
+    Get database configuration from environment variables.
+    
+    Returns:
+        Tuple of (database_url, is_sqlite_flag)
+        
+    Raises:
+        ValueError: If DATABASE_URL format is invalid
+    """
     database_url = os.getenv("DATABASE_URL")
+    if database_url and not (database_url.startswith("sqlite") or database_url.startswith("postgresql")):
+        raise ValueError(f"Unsupported database URL format: {database_url}")
+    
     is_sqlite = database_url and database_url.startswith("sqlite")
     return database_url, is_sqlite
 
 _conn_lock = threading.Lock()
-_conn = None  # lazy init
+_conn: Optional[Any] = None  # lazy init
 
-def _ensure_conn():
-    """Create a singleton connection lazily."""
+def _ensure_conn() -> Any:
+    """
+    Create a singleton database connection lazily.
+    
+    Returns:
+        Database connection object (sqlite3.Connection or psycopg2.Connection)
+        
+    Raises:
+        RuntimeError: If DATABASE_URL is not set
+        ConnectionError: If database connection fails
+        ImportError: If required database driver is not available
+    """
     global _conn
     if _conn is None:
-        DATABASE_URL, IS_SQLITE = get_db_config()
-        if not DATABASE_URL:
-            raise RuntimeError("DATABASE_URL is not set")
-
-        if IS_SQLITE:
-            import sqlite3
-            db_api = sqlite3
-            path = DATABASE_URL.replace("sqlite:///", "")
-            _conn = db_api.connect(path, check_same_thread=False)
-            _conn.row_factory = db_api.Row
-        else:
-            try:
-                import psycopg2 as pg
-            except ImportError:
-                import psycopg2_binary as pg
-            db_api = pg
-            _conn = db_api.connect(DATABASE_URL, application_name="orchestrator")
-            _conn.autocommit = True
+        with _conn_lock:  # Thread-safe initialization
+            if _conn is None:  # Double-check locking pattern
+                try:
+                    DATABASE_URL, IS_SQLITE = get_db_config()
+                    if not DATABASE_URL:
+                        raise RuntimeError(
+                            "DATABASE_URL is not set. Please configure your database connection."
+                        )
+                    
+                    logger.info(f"Initializing {'SQLite' if IS_SQLITE else 'PostgreSQL'} database connection")
+                    
+                    if IS_SQLITE:
+                        import sqlite3
+                        db_api = sqlite3
+                        path = DATABASE_URL.replace("sqlite:///", "")
+                        _conn = db_api.connect(path, check_same_thread=False)
+                        _conn.row_factory = db_api.Row
+                        logger.info(f"SQLite connection established: {path}")
+                    else:
+                        try:
+                            import psycopg2 as pg
+                        except ImportError:
+                            try:
+                                import psycopg2_binary as pg
+                            except ImportError:
+                                raise ImportError(
+                                    "PostgreSQL driver not found. Install psycopg2 or psycopg2-binary"
+                                )
+                        
+                        _conn = pg.connect(DATABASE_URL, application_name="project-archangel")
+                        _conn.autocommit = True
+                        logger.info("PostgreSQL connection established")
+                        
+                except Exception as e:
+                    logger.error(f"Database connection failed: {e}")
+                    raise ConnectionError(f"Failed to connect to database: {e}") from e
+    
     return _conn
 
-def placeholder(n=1):
+def placeholder(n: int = 1) -> str:
+    """
+    Generate database-specific placeholder string for parameterized queries.
+    
+    Args:
+        n: Number of placeholders to generate
+        
+    Returns:
+        Comma-separated placeholder string
+        
+    Raises:
+        ValueError: If n is less than 1
+    """
+    if n < 1:
+        raise ValueError("Number of placeholders must be at least 1")
+        
     _, IS_SQLITE = get_db_config()
     if IS_SQLITE:
         return ",".join(["?"] * n)
     return ",".join(["%s"] * n)
 
 
-def get_conn():
-    """Return a live psycopg2 connection, initializing if needed."""
-    return _ensure_conn()
+def get_conn() -> Any:
+    """
+    Return a live database connection, initializing if needed.
+    
+    Returns:
+        Database connection object
+        
+    Raises:
+        ConnectionError: If database connection fails
+    """
+    try:
+        return _ensure_conn()
+    except Exception as e:
+        logger.error(f"Failed to get database connection: {e}")
+        raise
 
 
 def init():
@@ -89,6 +162,33 @@ def init():
               updated_at text not null default (datetime('now'))
             );
             """)
+            
+            # Provider configuration table for SQLite
+            c.execute("""
+            create table if not exists providers(
+              id text primary key,
+              name text not null,
+              type text not null, -- 'clickup', 'trello', 'todoist'
+              config text not null, -- JSON as text for SQLite
+              health_status text not null default 'active',
+              active_tasks integer not null default 0,
+              wip_limit integer not null default 10,
+              created_at text not null default (datetime('now')),
+              updated_at text not null default (datetime('now'))
+            );
+            """)
+            
+            # Task routing history for analytics (SQLite)
+            c.execute("""
+            create table if not exists task_routing_history(
+              id integer primary key autoincrement,
+              task_id text not null,
+              provider_id text not null,
+              score real not null,
+              routing_reason text,
+              routed_at text not null default (datetime('now'))
+            );
+            """)
         else:
             c.execute("""
             create table if not exists events(
@@ -126,9 +226,46 @@ def init():
               updated_at timestamptz not null default now()
             );
             """)
+            
+            # Provider configuration table
+            c.execute("""
+            create table if not exists providers(
+              id text primary key,
+              name text not null,
+              type text not null, -- 'clickup', 'trello', 'todoist'
+              config jsonb not null,
+              health_status text not null default 'active',
+              active_tasks integer not null default 0,
+              wip_limit integer not null default 10,
+              created_at timestamptz not null default now(),
+              updated_at timestamptz not null default now()
+            );
+            """)
+            
+            # Task routing history for analytics
+            c.execute("""
+            create table if not exists task_routing_history(
+              id bigserial primary key,
+              task_id text not null,
+              provider_id text not null,
+              score real not null,
+              routing_reason text,
+              routed_at timestamptz not null default now()
+            );
+            """)
 
+        # Create indexes for outbox table
         c.execute("create unique index if not exists outbox_idem_ux on outbox(idempotency_key);")
         c.execute("create index if not exists outbox_status_next_idx on outbox(status, next_retry_at);")
+        
+        # Create indexes for provider management
+        c.execute("create index if not exists providers_type_idx on providers(type);")
+        c.execute("create index if not exists providers_health_idx on providers(health_status);")
+        
+        # Create indexes for task routing history
+        c.execute("create index if not exists task_routing_task_idx on task_routing_history(task_id);")
+        c.execute("create index if not exists task_routing_provider_idx on task_routing_history(provider_id);")
+        c.execute("create index if not exists task_routing_time_idx on task_routing_history(routed_at);")
 
 
 def upsert_event(delivery_id: str, event: dict):
