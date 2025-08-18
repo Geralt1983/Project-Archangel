@@ -17,8 +17,12 @@ def _canon_json(d: Dict[str, Any]) -> str:
     return json.dumps(d, sort_keys=True, separators=(",", ":"))
 
 
-def make_idempotency_key(operation_type: str, endpoint: str, request: Dict[str, Any]) -> str:
-    base = f"{operation_type}|{endpoint}|{_canon_json(request)}"
+def make_idempotency_key(operation_type: str, endpoint: str, request: Dict[str, Any], provider: Optional[str] = None) -> str:
+    provider_part = (provider or "").strip()
+    if provider_part:
+        base = f"{provider_part}|{operation_type}|{endpoint}|{_canon_json(request)}"
+    else:
+        base = f"{operation_type}|{endpoint}|{_canon_json(request)}"
     return hashlib.sha256(base.encode("utf-8")).hexdigest()
 
 
@@ -71,12 +75,21 @@ class OutboxManager:
         self._lock = threading.Lock()
 
     # enqueue before making any external call
-    def enqueue(self, operation_type: str, endpoint: str, request: Dict[str, Any],
-                headers: Optional[Dict[str, Any]] = None, idempotency_key: Optional[str] = None) -> str:
+    def enqueue(
+        self,
+        operation_type: str,
+        endpoint: str,
+        request: Dict[str, Any],
+        headers: Optional[Dict[str, Any]] = None,
+        idempotency_key: Optional[str] = None,
+        provider: Optional[str] = None,
+    ) -> str:
         _, IS_SQLITE = get_db_config()
         conn = self.conn_factory()
         headers = headers or {}
-        idem = idempotency_key or make_idempotency_key(operation_type, endpoint, request)
+        idem = idempotency_key or make_idempotency_key(
+            operation_type, endpoint, request, provider=provider
+        )
         c = conn.cursor()
         if IS_SQLITE:
             sql = """

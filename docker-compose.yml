@@ -8,7 +8,7 @@ services:
       POSTGRES_PASSWORD: archangel
       POSTGRES_DB: archangel
     ports:
-      - "5432:5432"
+      - "5433:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U archangel -d archangel"]
       interval: 3s

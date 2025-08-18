@@ -1,6 +1,9 @@
 SHELL := /bin/bash
 export PYTHONPATH := $(PWD):$(PYTHONPATH)
 
+# Default to in-memory SQLite for unit tests unless DATABASE_URL is provided
+DATABASE_URL ?= sqlite:///:memory:
+
 .PHONY: up down ps logs dbshell init test api worker lint usage dev
 
 up:
@@ -28,7 +31,16 @@ dbshell:
 init:
 	python -c "from app.db_pg import init; init(); print('Tables ready')"
 
-test: up init
+# Unit tests default (SQLite). Use test.int for Postgres-backed tests.
+
+test: test.unit
+
+# Run unit tests against SQLite (no Docker required)
+test.unit:
+	pytest -q
+
+# Run integration tests against Postgres in Docker
+test.int: up init
 	pytest -q
 
 api:
