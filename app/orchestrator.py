@@ -141,6 +141,13 @@ class ScoringEngine:
         final_score = base_score - (self.staleness_max_penalty * components['staleness'])
         final_score = max(0.0, min(1.0, final_score))
         
+        logger.debug(
+            f"Task {task.id} score: {final_score:.4f} "
+            f"(importance={components['importance']:.3f}, "
+            f"urgency={components['urgency']:.3f}, "
+            f"staleness={components['staleness']:.3f})"
+        )
+
         return round(final_score, 4), components
         
     def _compute_urgency(self, task: TaskContext) -> float:
@@ -187,13 +194,39 @@ class ScoringEngine:
 class WIPEnforcer:
     """Work-In-Progress limits and load balancing"""
     
-    def __init__(self, config: Dict[str, Any] = None):
+    def __init__(self, config: Optional[Dict[str, Any]] = None) -> None:
+        """
+        Initialize WIP enforcer with configuration
+        
+        Args:
+            config: Optional configuration dictionary
+        """
         self.config = config or {}
         self.wip_limits = self.config.get('wip_limits', {'default': 3})
         self.load_balance_threshold = self.config.get('load_balance_threshold', 0.8)
         
+        logger.debug(f"WIPEnforcer initialized with limits: {self.wip_limits}")
+        
     def check_wip_constraints(self, assignee: str, current_wip: int) -> Dict[str, Any]:
-        """Check if assignee can take more work"""
+        """
+        Check if assignee can take more work
+        
+        Args:
+            assignee: Assignee identifier
+            current_wip: Current work in progress count
+            
+        Returns:
+            Dictionary with WIP constraint information
+            
+        Raises:
+            ValueError: If current_wip is negative
+        """
+        if current_wip < 0:
+            raise ValueError(f"current_wip must be non-negative, got {current_wip}")
+            
+        if not assignee:
+            logger.warning("Empty assignee provided to WIP check")
+            assignee = "unassigned"
         limit = self.wip_limits.get(assignee, self.wip_limits['default'])
         
         return {
@@ -234,9 +267,25 @@ class WIPEnforcer:
 class StateManager:
     """Manages task state transitions and persistence"""
     
-    def __init__(self, db_path: str = "orchestrator.db"):
+    def __init__(self, db_path: str = "orchestrator.db") -> None:
+        """
+        Initialize state manager with database
+        
+        Args:
+            db_path: Path to SQLite database file
+            
+        Raises:
+            OSError: If database cannot be created or accessed
+        """
         self.db_path = Path(db_path)
-        self._init_database()
+        logger.info(f"Initializing state manager with database: {self.db_path}")
+        
+        try:
+            self._init_database()
+            logger.debug("Database initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to initialize database: {e}")
+            raise
         
     def _init_database(self):
         """Initialize SQLite database for orchestrator state"""
@@ -272,32 +321,49 @@ class StateManager:
                 CREATE INDEX IF NOT EXISTS idx_trace_task ON decision_trace(task_id);
             """)
             
-    def save_decision(self, decision: OrchestrationDecision):
-        """Persist orchestration decision with full audit trail"""
-        with sqlite3.connect(self.db_path) as conn:
-            conn.execute("""
-                INSERT OR REPLACE INTO task_scores 
-                (task_id, score, components, decision_data, timestamp)
-                VALUES (?, ?, ?, ?, ?)
-            """, (
-                decision.task_id,
-                decision.score,
-                json.dumps({}),  # Will be filled with component scores
-                json.dumps(asdict(decision)),
-                decision.timestamp.isoformat()
-            ))
+    def save_decision(self, decision: OrchestrationDecision) -> None:
+        """
+        Persist orchestration decision with full audit trail
+        
+        Args:
+            decision: Orchestration decision to persist
             
-            conn.execute("""
-                INSERT INTO decision_trace
-                (task_id, decision_type, reasoning, outcome, timestamp)
-                VALUES (?, ?, ?, ?, ?)
-            """, (
-                decision.task_id,
-                'orchestration',
-                json.dumps(decision.reasoning),
-                decision.recommended_action,
-                decision.timestamp.isoformat()
-            ))
+        Raises:
+            sqlite3.Error: If database operation fails
+            TypeError: If decision is not OrchestrationDecision
+        """
+        if not isinstance(decision, OrchestrationDecision):
+            raise TypeError(f"decision must be OrchestrationDecision, got {type(decision)}")
+            
+        logger.debug(f"Saving decision for task {decision.task_id}")
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                conn.execute("""
+                    INSERT OR REPLACE INTO task_scores 
+                    (task_id, score, components, decision_data, timestamp)
+                    VALUES (?, ?, ?, ?, ?)
+                """, (
+                    decision.task_id,
+                    decision.score,
+                    json.dumps({}),  # Will be filled with component scores
+                    json.dumps(asdict(decision)),
+                    decision.timestamp.isoformat()
+                ))
+            
+                conn.execute("""
+                    INSERT INTO decision_trace
+                    (task_id, decision_type, reasoning, outcome, timestamp)
+                    VALUES (?, ?, ?, ?, ?)
+                """, (
+                    decision.task_id,
+                    'orchestration',
+                    json.dumps(decision.reasoning),
+                    decision.recommended_action,
+                    decision.timestamp.isoformat()
+                ))
+        except sqlite3.Error as e:
+            logger.error(f"Failed to save decision for task {decision.task_id}: {e}")
+            raise
             
     def get_client_recent_allocation(self, client: str, hours_lookback: int = 168) -> float:
         """Get recent hour allocation for fairness calculations"""
@@ -321,11 +387,26 @@ class StateManager:
 class TaskOrchestrator:
     """Main orchestrator class combining all components"""
     
-    def __init__(self, config: Dict[str, Any] = None):
+    def __init__(self, config: Optional[Dict[str, Any]] = None) -> None:
+        """
+        Initialize task orchestrator with configuration
+        
+        Args:
+            config: Optional configuration dictionary
+            
+        Raises:
+            Exception: If component initialization fails
+        """
         self.config = config or {}
-        self.scoring_engine = ScoringEngine(config)
-        self.wip_enforcer = WIPEnforcer(config)
-        self.state_manager = StateManager()
+        
+        try:
+            self.scoring_engine = ScoringEngine(config)
+            self.wip_enforcer = WIPEnforcer(config)
+            self.state_manager = StateManager()
+            logger.info("Task orchestrator initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to initialize orchestrator: {e}")
+            raise
         
     def orchestrate_task(self, task: TaskContext) -> OrchestrationDecision:
         """Main orchestration logic - produces prioritization decision"""
@@ -365,9 +446,9 @@ class TaskOrchestrator:
         # Persist decision for audit trail (async operation, don't wait)
         try:
             self.state_manager.save_decision(decision)
-        except Exception:
+        except Exception as e:
             # Log but don't fail orchestration
-            pass
+            logger.warning(f"Failed to persist decision for task {task.id}: {e}")
         
         return decision
         
@@ -460,14 +541,49 @@ class TaskOrchestrator:
         }
 
 # Factory function for easy integration
-def create_orchestrator(config: Dict[str, Any] = None) -> TaskOrchestrator:
-    """Create configured orchestrator instance"""
+def create_orchestrator(config: Optional[Dict[str, Any]] = None) -> TaskOrchestrator:
+    """
+    Create configured orchestrator instance
+    
+    Args:
+        config: Optional configuration dictionary
+        
+    Returns:
+        Configured TaskOrchestrator instance
+        
+    Raises:
+        Exception: If orchestrator creation fails
+    """
     return TaskOrchestrator(config)
 
 # Legacy compatibility wrapper
-def compute_score(task: dict, rules: dict) -> float:
-    """Legacy compatibility wrapper for existing scoring calls"""
-    orchestrator = create_orchestrator()
+def compute_score(task: Dict[str, Any], rules: Dict[str, Any]) -> float:
+    """
+    Legacy compatibility wrapper for existing scoring calls
+    
+    Args:
+        task: Task dictionary with legacy format
+        rules: Rules dictionary (legacy format)
+        
+    Returns:
+        Computed task score
+        
+    Raises:
+        TypeError: If inputs are not dictionaries
+        ValueError: If required task fields are missing
+    """
+    if not isinstance(task, dict):
+        raise TypeError(f"task must be dict, got {type(task)}")
+    if not isinstance(rules, dict):
+        raise TypeError(f"rules must be dict, got {type(rules)}")
+        
+    logger.debug(f"Legacy score computation for task: {task.get('id', 'unknown')}")
+    try:
+        orchestrator = create_orchestrator()
+    except Exception as e:
+        logger.error(f"Failed to create orchestrator: {e}")
+        # Fallback to simple scoring
+        return 0.5
     
     # Convert legacy task format to TaskContext
     task_context = TaskContext(
@@ -491,5 +607,10 @@ def compute_score(task: dict, rules: dict) -> float:
         created_at=datetime.fromisoformat(task['created_at'].replace('Z', '+00:00')) if task.get('created_at') else datetime.now(timezone.utc)
     )
     
-    decision = orchestrator.orchestrate_task(task_context)
-    return decision.score
+    try:
+        decision = orchestrator.orchestrate_task(task_context)
+        return decision.score
+    except Exception as e:
+        logger.error(f"Orchestration failed for task {task.get('id', 'unknown')}: {e}")
+        # Fallback to simple scoring based on importance
+        return min(1.0, task.get('importance', 3.0) / 5.0)

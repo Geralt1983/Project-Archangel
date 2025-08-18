@@ -10,11 +10,17 @@ from app.audit import log_event
 from app.api_outbox import router as outbox_router
 from app.api_memory import router as memory_router
 from app.api_usage import router as usage_router
+from app.api_tasks import router as tasks_router
 
-app = FastAPI()
+app = FastAPI(
+    title="Project Archangel API",
+    description="AI-powered task orchestration system with multi-provider support",
+    version="1.0.0"
+)
 app.include_router(outbox_router)
 app.include_router(memory_router)
 app.include_router(usage_router)
+app.include_router(tasks_router)
 
 def clickup():
     return ClickUpAdapter(

@@ -1,5 +1,6 @@
 version: "3.9"
 services:
+  # PostgreSQL Database - Primary
   db:
     image: postgres:15-alpine
     container_name: archangel_db
@@ -7,6 +8,7 @@ services:
       POSTGRES_USER: archangel
       POSTGRES_PASSWORD: archangel
       POSTGRES_DB: archangel
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256"
     ports:
       - "5432:5432"
     healthcheck:
@@ -16,5 +18,158 @@ services:
       retries: 20
     volumes:
       - pgdata:/var/lib/postgresql/data
+      - ./scripts/postgres-init:/docker-entrypoint-initdb.d
+    command: >
+      postgres
+      -c max_connections=100
+      -c shared_buffers=256MB
+      -c effective_cache_size=1GB
+      -c maintenance_work_mem=64MB
+      -c checkpoint_completion_target=0.9
+      -c wal_buffers=16MB
+      -c default_statistics_target=100
+      -c random_page_cost=1.1
+      -c effective_io_concurrency=200
+      -c work_mem=4MB
+      -c min_wal_size=1GB
+      -c max_wal_size=4GB
+    networks:
+      - archangel-network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: archangel_redis
+    ports:
+      - "6379:6379"
+    command: >
+      redis-server
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+      --save 900 1
+      --save 300 10
+      --save 60 10000
+      --appendonly yes
+      --appendfsync everysec
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    volumes:
+      - redisdata:/data
+    networks:
+      - archangel-network
+
+  # Main Application
+  api:
+    build: .
+    container_name: archangel_api
+    ports:
+      - "8080:8080"
+      - "8090:8090"  # Metrics endpoint
+    environment:
+      - DATABASE_URL=postgresql://archangel:archangel@db:5432/archangel
+      - REDIS_URL=redis://redis:6379/0
+      - PORT=8080
+      - METRICS_PORT=8090
+      - LOG_LEVEL=INFO
+      - ENVIRONMENT=production
+      - TRACING_ENABLED=true
+      - JAEGER_ENDPOINT=http://jaeger:14268/api/traces
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - archangel-network
+    restart: unless-stopped
+
+  # Outbox Worker
+  worker:
+    build: .
+    container_name: archangel_worker
+    command: python outbox_worker.py --daemon
+    environment:
+      - DATABASE_URL=postgresql://archangel:archangel@db:5432/archangel
+      - REDIS_URL=redis://redis:6379/0
+      - LOG_LEVEL=INFO
+      - ENVIRONMENT=production
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - archangel-network
+    restart: unless-stopped
+
+  # Jaeger Tracing (Development)
+  jaeger:
+    image: jaegertracing/all-in-one:1.49
+    container_name: archangel_jaeger
+    ports:
+      - "16686:16686"  # Jaeger UI
+      - "14268:14268"  # HTTP collector
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    networks:
+      - archangel-network
+    profiles:
+      - observability
+
+  # Prometheus Metrics Collection (Development)
+  prometheus:
+    image: prom/prometheus:v2.45.0
+    container_name: archangel_prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    networks:
+      - archangel-network
+    profiles:
+      - observability
+
+  # Grafana Dashboards (Development)
+  grafana:
+    image: grafana/grafana:10.1.0
+    container_name: archangel_grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards
+    networks:
+      - archangel-network
+    profiles:
+      - observability
+
+
+networks:
+  archangel-network:
+    driver: bridge
+
 volumes:
   pgdata: {}
+  redisdata: {}
+  prometheus-data: {}
+  grafana-data: {}

@@ -38,9 +38,60 @@ class ClickUpAdapter(ProviderAdapter):
             "description": task.get("description", ""),
             "due_date": _to_epoch_ms(task.get("deadline")),
             "tags": task.get("labels", []),
+            "priority": self._map_priority(task.get("priority", 3)),
+            "assignees": [task.get("assignee")] if task.get("assignee") else []
         }
         r = self._make_request("POST", f"{CLICKUP_API}/list/{self.list_id}/task", json=payload)
         return r.json()
+    
+    @retry_with_backoff()
+    def get_task(self, external_id: str):
+        """Get task by ClickUp task ID"""
+        r = self._make_request("GET", f"{CLICKUP_API}/task/{external_id}")
+        return r.json()
+    
+    @retry_with_backoff()
+    def update_task(self, external_id: str, task_data: dict):
+        """Update existing task"""
+        payload = {}
+        if "title" in task_data:
+            payload["name"] = task_data["title"]
+        if "description" in task_data:
+            payload["description"] = task_data["description"]
+        if "deadline" in task_data:
+            payload["due_date"] = _to_epoch_ms(task_data["deadline"])
+        if "priority" in task_data:
+            payload["priority"] = self._map_priority(task_data["priority"])
+        if "status" in task_data:
+            payload["status"] = task_data["status"]
+        
+        r = self._make_request("PUT", f"{CLICKUP_API}/task/{external_id}", json=payload)
+        return r.json()
+    
+    @retry_with_backoff()
+    def delete_task(self, external_id: str):
+        """Delete/archive task"""
+        r = self._make_request("DELETE", f"{CLICKUP_API}/task/{external_id}")
+        return r.status_code == 204
+    
+    @retry_with_backoff()
+    def list_tasks(self, status_filter=None, assignee_filter=None):
+        """List tasks in the configured list"""
+        params = {}
+        if status_filter:
+            params["statuses[]"] = status_filter
+        if assignee_filter:
+            params["assignees[]"] = assignee_filter
+            
+        r = self._make_request("GET", f"{CLICKUP_API}/list/{self.list_id}/task", params=params)
+        return r.json()
+    
+    def _map_priority(self, priority: int) -> int:
+        """Map internal priority (1-5) to ClickUp priority (1-4)"""
+        # Internal: 1=Low, 2=Normal, 3=Medium, 4=High, 5=Urgent
+        # ClickUp: 1=Urgent, 2=High, 3=Normal, 4=Low
+        priority_map = {1: 4, 2: 3, 3: 3, 4: 2, 5: 1}
+        return priority_map.get(priority, 3)
     
     def _make_request(self, method: str, url: str, **kwargs):
         """Centralized request method with error handling"""
