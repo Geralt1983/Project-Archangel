@@ -56,7 +56,7 @@
 **User Story**: "As a team lead, I want to connect ClickUp, Trello, and Todoist so I can manage all tasks from one place."
 
 **Acceptance Criteria**:
-- Connect to ClickUp, Trello, Todoist with OAuth/API keys
+- Connect to ClickUp, Trello, Todoist, and Asana with OAuth/API keys
 - Sync tasks bidirectionally across all platforms
 - Support CRUD operations on all connected providers
 - Handle rate limiting and authentication gracefully
@@ -170,7 +170,7 @@
 - **Rate Limiting**: Respect provider API quotas and limits
 
 ### Integration Requirements
-- **Provider APIs**: ClickUp API v2, Trello REST API, Todoist Sync API
+- **Provider APIs**: ClickUp API v2, Trello REST API, Todoist Sync API, Asana API v1
 - **Webhooks**: Support provider webhook notifications
 - **Database**: PostgreSQL with ACID compliance
 - **Caching**: Redis for session and metadata caching
@@ -241,6 +241,7 @@
 - **Month 4**: Beta launch with 10 friendly customers
 - **Month 5**: Public launch with basic features
 - **Month 6-8**: Enhanced features rollout (F5-F7)
+- **Month 9-10**: Enterprise feature hardening and Asana integration
 
 ### Pricing Strategy
 **Freemium Model**:
