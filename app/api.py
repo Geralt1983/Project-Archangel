@@ -69,6 +69,7 @@ def health():
     return {"ok": True}
 
 @app.post("/webhooks/clickup")
+@app.post("/api/webhooks/clickup")
 async def clickup_webhook(request: Request):
     adapter = clickup()
     raw = await request.body()
@@ -100,6 +101,7 @@ async def clickup_webhook(request: Request):
     return {"ok": True}
 
 @app.post("/webhooks/trello")
+@app.post("/api/webhooks/trello")
 async def trello_webhook(request: Request, x_trello_webhook: str = Header(None)):
     adapter = trello()
     raw = await request.body()
@@ -115,6 +117,7 @@ async def trello_webhook(request: Request, x_trello_webhook: str = Header(None))
     return {"ok": True}
 
 @app.post("/webhooks/todoist")
+@app.post("/api/webhooks/todoist")
 async def todoist_webhook(request: Request, x_todoist_hmac_sha256: str = Header(None)):
     adapter = todoist()
     raw = await request.body()

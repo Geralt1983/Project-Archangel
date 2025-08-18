@@ -1,3 +1,4 @@
+import asyncio
 import hmac
 import hashlib
 import httpx
@@ -23,15 +24,40 @@ class ClickUpAdapter(ProviderAdapter):
         self.list_id = list_id
         self.webhook_secret = webhook_secret
         self.client = httpx.Client(timeout=20.0, headers={"Authorization": token})
+        self.async_client = httpx.AsyncClient(timeout=20.0, headers={"Authorization": token})
         
         # Enhanced retry configuration for ClickUp
         self.retry_config = RetryConfig(
-            max_attempts=5,
+            max_tries=5,
             base_delay=1.0,
             max_delay=60.0,
-            jitter=True,
-            retryable_exceptions=(RateLimitError, ServerError, httpx.RequestError, httpx.TimeoutException)
+            jitter=0.3,
         )
+
+    @retry_with_backoff()
+    async def _make_request(self, method: str, url: str, *, json: dict | None = None, headers: dict | None = None, idempotent: bool = False, **kwargs):
+        """Asynchronous request method used for tests"""
+        hdrs = headers.copy() if headers else {}
+        full_url = url if url.startswith("http") else f"{CLICKUP_API}{url}"
+        if idempotent and json is not None:
+            hdrs.setdefault("Idempotency-Key", make_idempotency_key(self.name, full_url, json))
+
+        if method.upper() == "GET":
+            response = await self.async_client.get(full_url, headers=hdrs, **kwargs)
+        elif method.upper() == "DELETE":
+            response = await self.async_client.delete(full_url, headers=hdrs, **kwargs)
+        elif method.upper() == "PUT":
+            response = await self.async_client.put(full_url, json=json, headers=hdrs, **kwargs)
+        else:
+            response = await self.async_client.post(full_url, json=json, headers=hdrs, **kwargs)
+
+        if response.status_code == 429:
+            retry_after = int(response.headers.get("retry-after", 60))
+            raise RateLimitError(retry_after)
+        if response.status_code >= 500:
+            raise ServerError(response.status_code, response.text)
+        response.raise_for_status()
+        return response
 
     @retry_with_backoff()  # Use default config from decorator
     def create_task(self, task):
@@ -43,13 +69,13 @@ class ClickUpAdapter(ProviderAdapter):
             "priority": self._map_priority(task.get("priority", 3)),
             "assignees": [task.get("assignee")] if task.get("assignee") else []
         }
-        r = self._make_request("POST", f"{CLICKUP_API}/list/{self.list_id}/task", json=payload, idempotent=True)
+        r = self._sync_request("POST", f"{CLICKUP_API}/list/{self.list_id}/task", json=payload, idempotent=True)
         return r.json()
     
     @retry_with_backoff()
     def get_task(self, external_id: str):
         """Get task by ClickUp task ID"""
-        r = self._make_request("GET", f"{CLICKUP_API}/task/{external_id}")
+        r = self._sync_request("GET", f"{CLICKUP_API}/task/{external_id}")
         return r.json()
     
     @retry_with_backoff()
@@ -67,13 +93,13 @@ class ClickUpAdapter(ProviderAdapter):
         if "status" in task_data:
             payload["status"] = task_data["status"]
         
-        r = self._make_request("PUT", f"{CLICKUP_API}/task/{external_id}", json=payload)
+        r = self._sync_request("PUT", f"{CLICKUP_API}/task/{external_id}", json=payload)
         return r.json()
     
     @retry_with_backoff()
     def delete_task(self, external_id: str):
         """Delete/archive task"""
-        r = self._make_request("DELETE", f"{CLICKUP_API}/task/{external_id}")
+        r = self._sync_request("DELETE", f"{CLICKUP_API}/task/{external_id}")
         return r.status_code == 204
     
     @retry_with_backoff()
@@ -85,7 +111,7 @@ class ClickUpAdapter(ProviderAdapter):
         if assignee_filter:
             params["assignees[]"] = assignee_filter
             
-        r = self._make_request("GET", f"{CLICKUP_API}/list/{self.list_id}/task", params=params)
+        r = self._sync_request("GET", f"{CLICKUP_API}/list/{self.list_id}/task", params=params)
         return r.json()
     
     def _map_priority(self, priority: int) -> int:
@@ -94,29 +120,39 @@ class ClickUpAdapter(ProviderAdapter):
         # ClickUp: 1=Urgent, 2=High, 3=Normal, 4=Low
         priority_map = {1: 4, 2: 3, 3: 3, 4: 2, 5: 1}
         return priority_map.get(priority, 3)
+
+    def _map_priority_to_clickup(self, priority: int) -> int:
+        return self._map_priority(priority)
+
+    def _map_priority_from_clickup(self, priority: int) -> int:
+        reverse_map = {1: 5, 2: 4, 3: 3, 4: 1}
+        return reverse_map.get(priority, 3)
+
+    def _generate_signature(self, body: str) -> str:
+        return hmac.new(self.webhook_secret.encode(), body.encode(), hashlib.sha256).hexdigest()
+
+    def verify_webhook_signature(self, body: str, signature: str) -> bool:
+        expected = self._generate_signature(body)
+        return hmac.compare_digest(signature, expected)
     
-    def _make_request(self, method: str, url: str, *, json: dict | None = None, headers: dict | None = None, idempotent: bool = False, **kwargs):
-        """Centralized request method with error handling and optional idempotency header"""
+    def _sync_request(self, method: str, url: str, *, json: dict | None = None, headers: dict | None = None, idempotent: bool = False, **kwargs):
+        """Synchronous request helper with error handling"""
         hdrs = headers.copy() if headers else {}
         if idempotent and json is not None:
             hdrs.setdefault("Idempotency-Key", make_idempotency_key(self.name, url, json))
-        
-        # Support both new signature and legacy kwargs
+
         if json is not None or not kwargs:
             response = self.client.request(method, url, json=json, headers=hdrs)
         else:
             response = self.client.request(method, url, headers=hdrs, **kwargs)
-        
-        # Handle rate limiting
+
         if response.status_code == 429:
             retry_after = int(response.headers.get("retry-after", 60))
             raise RateLimitError(retry_after)
-        
-        # Handle server errors
+
         if response.status_code >= 500:
             raise ServerError(response.status_code, response.text)
-        
-        # Handle client errors (don't retry these)
+
         response.raise_for_status()
         return response
 
@@ -128,7 +164,7 @@ class ClickUpAdapter(ProviderAdapter):
                 "name": st["title"],
                 "parent": parent_external_id
             }
-            r = self._make_request("POST", f"{CLICKUP_API}/list/{self.list_id}/task", json=payload, idempotent=True)
+            r = self._sync_request("POST", f"{CLICKUP_API}/list/{self.list_id}/task", json=payload, idempotent=True)
             out.append(r.json())
         return out
 
@@ -138,11 +174,11 @@ class ClickUpAdapter(ProviderAdapter):
         for it in items:
             # Create a checklist with a single item name
             # If you prefer one checklist with many items, first create checklist then items
-            self._make_request("POST", f"{CLICKUP_API}/task/{external_id}/checklist", json={"name": it}, idempotent=True)
+            self._sync_request("POST", f"{CLICKUP_API}/task/{external_id}/checklist", json={"name": it}, idempotent=True)
 
     @retry_with_backoff()
     def update_status(self, external_id, status):
-        self._make_request("PUT", f"{CLICKUP_API}/task/{external_id}", json={"status": status})
+        self._sync_request("PUT", f"{CLICKUP_API}/task/{external_id}", json={"status": status})
 
     def verify_webhook(self, headers, raw_body):
         # ClickUp sends X Signature header with HMAC SHA256 hex of raw body using webhook secret
@@ -158,5 +194,5 @@ class ClickUpAdapter(ProviderAdapter):
             "events": ["taskCreated", "taskUpdated", "taskDeleted"],
             "secret": self.webhook_secret
         }
-        r = self._make_request("POST", f"{CLICKUP_API}/team/{self.team_id}/webhook", json=payload, idempotent=True)
+        r = self._sync_request("POST", f"{CLICKUP_API}/team/{self.team_id}/webhook", json=payload, idempotent=True)
         return r.json()
