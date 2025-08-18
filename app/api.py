@@ -22,6 +22,20 @@ app.include_router(memory_router)
 app.include_router(usage_router)
 app.include_router(tasks_router)
 
+# Observability endpoints
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
+
+@app.get("/healthz")
+def healthz():
+    return {"status": "ok"}
+
+@app.get("/metrics")
+def metrics():
+    # Use default global registry
+    data = generate_latest()
+    from fastapi.responses import Response
+    return Response(content=data, media_type=CONTENT_TYPE_LATEST)
+
 def clickup():
     return ClickUpAdapter(
         token=os.getenv("CLICKUP_TOKEN",""),
@@ -172,7 +186,8 @@ async def intake(task: dict, provider: str = Query("clickup")):
         request={
             "task_data": t,
             "provider": adapter.name
-        }
+        },
+        provider=adapter.name
     )
     
     try:
@@ -185,14 +200,16 @@ async def intake(task: dict, provider: str = Query("clickup")):
             outbox.enqueue(
                 operation_type="create_subtasks",
                 endpoint=f"/tasks/{external_id}/subtasks",
-                request={"parent_id": external_id, "subtasks": t["subtasks"]}
+                request={"parent_id": external_id, "subtasks": t["subtasks"]},
+                provider=adapter.name
             )
         
         if t.get("checklist") and external_id:
             outbox.enqueue(
                 operation_type="add_checklist",
                 endpoint=f"/tasks/{external_id}/checklist",
-                request={"task_id": external_id, "items": t["checklist"]}
+                request={"task_id": external_id, "items": t["checklist"]},
+                provider=adapter.name
             )
         
         t["external_id"] = external_id

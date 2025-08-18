@@ -266,6 +266,10 @@ def init():
         c.execute("create index if not exists task_routing_task_idx on task_routing_history(task_id);")
         c.execute("create index if not exists task_routing_provider_idx on task_routing_history(provider_id);")
         c.execute("create index if not exists task_routing_time_idx on task_routing_history(routed_at);")
+        
+        # Additional helpful indexes for tasks lookups and filtering  
+        c.execute("create index if not exists tasks_provider_ext_idx on tasks(provider, external_id);")
+        c.execute("create index if not exists tasks_status_idx on tasks(status);")
 
 
 def upsert_event(delivery_id: str, event: dict):

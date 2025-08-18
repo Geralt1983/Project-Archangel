@@ -2,7 +2,8 @@ import asyncio
 import logging
 import random
 import time
-from typing import Callable, Iterable, Optional, Awaitable, TypeVar, Union, Any
+from dataclasses import dataclass
+from typing import Callable, Iterable, Optional, Awaitable, TypeVar, Tuple, Any, Type, Union
 from functools import wraps
 
 # Configure logging
@@ -11,12 +12,17 @@ logger = logging.getLogger(__name__)
 
 class RateLimitError(Exception):
     """Raised when API rate limit is exceeded"""
-    pass
+    def __init__(self, retry_after: Optional[Union[int, float]] = None, message: str = "Rate limited"):
+        super().__init__(message)
+        self.retry_after = retry_after
 
 
 class ServerError(Exception):
     """Raised when server returns 5xx error"""
-    pass
+    def __init__(self, status_code: int, body: str = ""):
+        super().__init__(f"Server error {status_code}: {body[:200]}")
+        self.status_code = status_code
+        self.body = body
 
 
 class RetryConfig:
@@ -104,6 +110,63 @@ async def retry_async(
             await asyncio.sleep(next_backoff(tries))
 
 
+# Enhanced Retry Framework for Providers
+@dataclass 
+class EnhancedRetryConfig:
+    """Enhanced retry configuration with better provider support"""
+    max_attempts: int = 5
+    base_delay: float = 1.0
+    max_delay: float = 60.0
+    jitter: bool = True
+    backoff_multiplier: float = 2.0
+    retryable_exceptions: Tuple[Type[BaseException], ...] = (RateLimitError, ServerError)
+
+
+def _calc_delay(attempt_index: int, cfg: EnhancedRetryConfig, hint: Optional[Union[int, float]] = None) -> float:
+    """Compute delay for attempt_index (0-based). Respect hint (e.g., Retry-After)."""
+    if hint is not None:
+        try:
+            return float(min(cfg.max_delay, max(0.05, hint)))
+        except Exception:
+            pass
+    delay = cfg.base_delay * (cfg.backoff_multiplier ** attempt_index)
+    if cfg.jitter:
+        # +/- 30% jitter
+        jitter_span = 0.3 * delay
+        delay = max(0.05, min(cfg.max_delay, delay + random.uniform(-jitter_span, jitter_span)))
+    else:
+        delay = max(0.05, min(cfg.max_delay, delay))
+    return delay
+
+
+def retry_with_backoff(config: Optional[RetryConfig] = None):
+    """Decorator for retrying functions with exponential backoff"""
+    if config is None:
+        config = RetryConfig()
+    
+    def decorator(func):
+        if asyncio.iscoroutinefunction(func):
+            @wraps(func)
+            async def async_wrapper(*args, **kwargs):
+                return await retry_async(
+                    lambda: func(*args, **kwargs),
+                    max_tries=config.max_tries,
+                    retry_if=_should_retry_http_error
+                )
+            return async_wrapper
+        else:
+            @wraps(func)
+            def sync_wrapper(*args, **kwargs):
+                return retry(
+                    lambda: func(*args, **kwargs),
+                    max_tries=config.max_tries,
+                    retry_if=_should_retry_http_error
+                )
+            return sync_wrapper
+    
+    return decorator
+
+
 # Optional helper for httpx without hard dependency
 def default_httpx_retryable(statuses: Iterable[int] = (429, 500, 502, 503, 504)):
     try:
@@ -127,6 +190,30 @@ def default_httpx_retryable(statuses: Iterable[int] = (429, 500, 502, 503, 504))
         return False
 
     return _pred
+
+
+def _should_retry_http_error(e: BaseException) -> bool:
+    """Determine if an HTTP error should trigger a retry"""
+    try:
+        import httpx
+        if isinstance(e, httpx.HTTPStatusError):
+            status = e.response.status_code
+            # Retry on rate limits and server errors
+            if status == 429:
+                return True
+            if 500 <= status <= 599:
+                return True
+            return False
+        if isinstance(e, (httpx.ConnectError, httpx.ReadTimeout, httpx.WriteError)):
+            return True
+    except ImportError:
+        pass
+    
+    # For our custom exceptions
+    if isinstance(e, (RateLimitError, ServerError)):
+        return True
+    
+    return False
 
 
 def retry_with_backoff(config: Optional[RetryConfig] = None):

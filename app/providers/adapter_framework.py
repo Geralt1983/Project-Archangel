@@ -65,19 +65,19 @@ class StandardTask:
         """Convert to dictionary for JSON serialization"""
         result = asdict(self)
         # Convert datetimes to ISO strings
-        for field in ['created_at', 'updated_at', 'deadline']:
-            if result[field]:
-                result[field] = result[field].isoformat() if isinstance(result[field], datetime) else result[field]
+        for fname in ['created_at', 'updated_at', 'deadline']:
+            if result[fname]:
+                result[fname] = result[fname].isoformat() if isinstance(result[fname], datetime) else result[fname]
         return result
     
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'StandardTask':
         """Create from dictionary with datetime parsing"""
         # Parse datetime fields
-        for field in ['created_at', 'updated_at', 'deadline']:
-            if data.get(field):
-                if isinstance(data[field], str):
-                    data[field] = datetime.fromisoformat(data[field].replace('Z', '+00:00'))
+        for fname in ['created_at', 'updated_at', 'deadline']:
+            if data.get(fname):
+                if isinstance(data[fname], str):
+                    data[fname] = datetime.fromisoformat(data[fname].replace('Z', '+00:00'))
         
         return cls(**data)
 

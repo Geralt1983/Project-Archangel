@@ -4,11 +4,13 @@ import httpx
 from datetime import datetime, timezone
 from .base import ProviderAdapter
 from ..utils.retry import retry_with_backoff, RetryConfig, RateLimitError, ServerError
+from app.utils.idempotency import make_idempotency_key
 
 CLICKUP_API = "https://api.clickup.com/api/v2"
 
 def _to_epoch_ms(iso: str | None) -> int | None:
-    if not iso: return None
+    if not iso:
+        return None
     dt = datetime.fromisoformat(iso.replace("Z", "+00:00"))
     return int(dt.replace(tzinfo=timezone.utc).timestamp() * 1000)
 
@@ -41,7 +43,7 @@ class ClickUpAdapter(ProviderAdapter):
             "priority": self._map_priority(task.get("priority", 3)),
             "assignees": [task.get("assignee")] if task.get("assignee") else []
         }
-        r = self._make_request("POST", f"{CLICKUP_API}/list/{self.list_id}/task", json=payload)
+        r = self._make_request("POST", f"{CLICKUP_API}/list/{self.list_id}/task", json=payload, idempotent=True)
         return r.json()
     
     @retry_with_backoff()
@@ -93,9 +95,17 @@ class ClickUpAdapter(ProviderAdapter):
         priority_map = {1: 4, 2: 3, 3: 3, 4: 2, 5: 1}
         return priority_map.get(priority, 3)
     
-    def _make_request(self, method: str, url: str, **kwargs):
-        """Centralized request method with error handling"""
-        response = self.client.request(method, url, **kwargs)
+    def _make_request(self, method: str, url: str, *, json: dict | None = None, headers: dict | None = None, idempotent: bool = False, **kwargs):
+        """Centralized request method with error handling and optional idempotency header"""
+        hdrs = headers.copy() if headers else {}
+        if idempotent and json is not None:
+            hdrs.setdefault("Idempotency-Key", make_idempotency_key(self.name, url, json))
+        
+        # Support both new signature and legacy kwargs
+        if json is not None or not kwargs:
+            response = self.client.request(method, url, json=json, headers=hdrs)
+        else:
+            response = self.client.request(method, url, headers=hdrs, **kwargs)
         
         # Handle rate limiting
         if response.status_code == 429:
@@ -118,7 +128,7 @@ class ClickUpAdapter(ProviderAdapter):
                 "name": st["title"],
                 "parent": parent_external_id
             }
-            r = self._make_request("POST", f"{CLICKUP_API}/list/{self.list_id}/task", json=payload)
+            r = self._make_request("POST", f"{CLICKUP_API}/list/{self.list_id}/task", json=payload, idempotent=True)
             out.append(r.json())
         return out
 
@@ -128,7 +138,7 @@ class ClickUpAdapter(ProviderAdapter):
         for it in items:
             # Create a checklist with a single item name
             # If you prefer one checklist with many items, first create checklist then items
-            self._make_request("POST", f"{CLICKUP_API}/task/{external_id}/checklist", json={"name": it})
+            self._make_request("POST", f"{CLICKUP_API}/task/{external_id}/checklist", json={"name": it}, idempotent=True)
 
     @retry_with_backoff()
     def update_status(self, external_id, status):
@@ -148,5 +158,5 @@ class ClickUpAdapter(ProviderAdapter):
             "events": ["taskCreated", "taskUpdated", "taskDeleted"],
             "secret": self.webhook_secret
         }
-        r = self._make_request("POST", f"{CLICKUP_API}/team/{self.team_id}/webhook", json=payload)
+        r = self._make_request("POST", f"{CLICKUP_API}/team/{self.team_id}/webhook", json=payload, idempotent=True)
         return r.json()

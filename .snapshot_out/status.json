@@ -1,7 +1,7 @@
 {
-  "branch": "chore/ci-snapshot-bot",
-  "commit": "7478afd",
+  "branch": "main",
+  "commit": "de7df70",
   "base": "origin/main",
-  "generated_at_epoch": 1754875115,
-  "changed_files_count": 47
+  "generated_at_epoch": 1755485188,
+  "changed_files_count": 2
 }

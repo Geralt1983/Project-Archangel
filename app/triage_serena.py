@@ -40,12 +40,13 @@ def triage_with_serena(task_in: dict, provider: str) -> dict:
     task["labels"] = sorted(set(task.get("labels", []) + res.get("labels", [])))
     task["effort_hours"] = res.get("effort_hours", task.get("effort_hours"))
     task["importance"] = res.get("importance", task.get("importance"))
-    if res.get("checklist"): task["checklist"] = res["checklist"]
-    if res.get("subtasks"): task["subtasks"] = res["subtasks"]
+    if res.get("checklist"):
+        task["checklist"] = res["checklist"]
+    if res.get("subtasks"):
+        task["subtasks"] = res["subtasks"]
 
     # score overrides if present
     if "score_overrides" in res:
-        ov = res["score_overrides"]
         # you can map component overrides to a final score or just rescore
         task["score"] = compute_score(task, rules)
 

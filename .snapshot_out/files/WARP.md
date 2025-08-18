@@ -16,6 +16,20 @@ Project Archangel is an AI-powered task orchestration system that balances workl
 6. **Database**: Prefer PostgreSQL for production, SQLite only for unit tests
 7. **Idempotency**: All provider operations must use idempotency keys
 
+## Golden Rules
+
+### Batching (from Claude Flow)
+**Batch all related file ops, task spawns, memory writes, and shell commands into ONE message.** If you're about to send a second message to do a related step, STOP and merge it into the first. This reduces latency and keeps coordination consistent.
+
+### Usage Monitoring (Claude Code Limits)
+**Monitor Claude Code usage to prevent session stalls.** If usage monitor predicts exhaustion < 20 minutes:
+1. **Compact context** - Remove unnecessary details
+2. **Snapshot immediately** - Run `/snap` to save progress  
+3. **Break large operations** into smaller chunks
+4. **Prioritize critical tasks** over nice-to-haves
+
+Check usage: `make usage` or `curl localhost:8000/usage/predictions`
+
 ## Workflows
 
 ### Core Commands
@@ -49,6 +63,18 @@ curl -s localhost:8000/planner/daily -d '{"hours":5}'
 Explain scoring for a task (pipe JSON task)
 ```bash
 echo '{"title":"Task","deadline":"2025-08-12T17:00:00Z","importance":4}' | python scripts/score_explain.py
+```
+
+#### `/usage:monitor`
+Monitor Claude Code usage in real-time
+```bash
+make usage
+```
+
+#### `/usage:check`  
+Check current usage and predictions
+```bash
+curl -s localhost:8000/usage/predictions | jq '.predictions.minutes_remaining'
 ```
 
 ## Always Run Checks
@@ -117,9 +143,38 @@ score = (
 Urgency is continuous: `1.0 - (hours_to_deadline / 336h)`
 Micro tie-breaker: `(-hours_to_deadline * 1e-9)`
 
+## Coordination Hooks
+
+Use coordination hooks to persist decisions and trace operations:
+
+```python
+from app.coord.hooks import pre_task, post_edit, notify, post_task, decision_trace
+
+# Log task start
+pre_task("session-123", "Rebalancing provider workload")
+
+# Record file changes
+post_edit("session-123", "app/scoring.py", "Adjusted urgency calculation")
+
+# Add decision traces
+notify("session-123", "Provider Amex overloaded, redistributing")
+
+# Log task completion
+post_task("session-123", "rebalance-001", "Moved 5 tasks, reduced variance by 40%")
+
+# Record rebalancing decisions
+decision_trace("session-123", "TASK-123", "TASK-456", 
+              urgency_delta=0.062, sla_delta=0.045, 
+              staleness_delta=-0.010, total_delta=0.097,
+              old_rank=5, new_rank=3)
+```
+
+Hooks are stored in `swarm_memory` table for audit and analysis.
+
 ## Logging Standards
 
 - Use `[metrics]` prefix for counters
+- Use `[coord]` prefix for coordination events
 - Redact tokens as `***` in logs
 - Hash delivery IDs for correlation
 - Never log full request bodies with secrets
