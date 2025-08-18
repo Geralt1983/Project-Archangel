@@ -127,8 +127,12 @@ def init():
             );
             """)
 
+        # Indexes (portable where possible)
         c.execute("create unique index if not exists outbox_idem_ux on outbox(idempotency_key);")
-        c.execute("create index if not exists outbox_status_next_idx on outbox(status, next_retry_at);")
+        c.execute("create index if not exists outbox_status_next_idx on outbox(status, next_retry_at, created_at);")
+        # Helpful indexes for tasks lookups and filtering
+        c.execute("create index if not exists tasks_provider_ext_idx on tasks(provider, external_id);")
+        c.execute("create index if not exists tasks_status_idx on tasks(status);")
 
 
 def upsert_event(delivery_id: str, event: dict):

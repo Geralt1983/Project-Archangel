@@ -177,47 +177,52 @@ class OutboxManager:
     def pick_batch(self, limit: int = 10) -> List[OutboxOperation]:
         """Select ready items with row locking to avoid contention across workers."""
         # Note: for sqlite, this is not concurrent. The lock serializes workers.
-        with self._lock:
-            _, IS_SQLITE = get_db_config()
-            conn = self.conn_factory()
-            c = conn.cursor()
+        _, IS_SQLITE = get_db_config()
+        conn = self.conn_factory()
+        c = conn.cursor()
 
-            if IS_SQLITE:
+        if IS_SQLITE:
+            # SQLite lacks SKIP LOCKED; serialize with process lock
+            with self._lock:
                 sql = """
                 select id, operation_type, endpoint, request, headers, idempotency_key, status, retry_count, next_retry_at, error
                 from outbox
-                where (status='pending' or (status='failed' and (next_retry_at is null or next_retry_at <= datetime('now'))))
-            order by created_at asc
-            limit ?
-            """
-            else:
-                sql = """
-                select id, operation_type, endpoint, request, headers, idempotency_key, status, retry_count, next_retry_at, error
-                from outbox
-                where (status='pending' or (status='failed' and (next_retry_at is null or next_retry_at <= now())))
+where (status='pending' or (status='failed' and (next_retry_at is null or next_retry_at <= datetime('now'))))
                 order by created_at asc
-                for update skip locked
-                limit %s
+                limit ?
                 """
+                c.execute(sql, (limit,))
+                rows = c.fetchall()
+        else:
+            # Postgres: rely on row-level locking for concurrency
+            sql = """
+            select id, operation_type, endpoint, request, headers, idempotency_key, status, retry_count, next_retry_at, error
+            from outbox
+where (status='pending' or (status='failed' and (next_retry_at is null or next_retry_at <= now())))
+            order by created_at asc
+            for update skip locked
+            limit %s
+            """
             c.execute(sql, (limit,))
             rows = c.fetchall()
-            ops: List[OutboxOperation] = []
-            for r in rows:
-                ops.append(OutboxOperation(
-                    id=r[0],
-                    operation_type=r[1],
-                    endpoint=r[2],
-                    request=json.loads(r[3]) if IS_SQLITE else r[3],
-                    headers=json.loads(r[4]) if IS_SQLITE else r[4],
-                    idempotency_key=r[5],
-                    status=r[6],
-                    retry_count=r[7],
-                    next_retry_at=r[8],
-                    error=r[9],
-                ))
-            # simple metric
-            print(f"[metrics] outbox.pick_batch count={len(ops)}")
-            return ops
+
+        ops: List[OutboxOperation] = []
+        for r in rows:
+            ops.append(OutboxOperation(
+                id=r[0],
+                operation_type=r[1],
+                endpoint=r[2],
+                request=json.loads(r[3]) if IS_SQLITE else r[3],
+                headers=json.loads(r[4]) if IS_SQLITE else r[4],
+                idempotency_key=r[5],
+                status=r[6],
+                retry_count=r[7],
+                next_retry_at=r[8],
+                error=r[9],
+            ))
+        # simple metric
+        print(f"[metrics] outbox.pick_batch count={len(ops)}")
+        return ops
 
     def get_stats(self) -> Dict[str, int]:
         conn = self.conn_factory()
