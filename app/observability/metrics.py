@@ -5,10 +5,9 @@ Production-ready metrics for monitoring performance, health, and business KPIs.
 
 import time
 import os
-from typing import Dict, Optional, Any
 from contextlib import asynccontextmanager
 from prometheus_client import (
-    Counter, Histogram, Gauge, Summary, Info,
+    Counter, Histogram, Gauge, Info,
     start_http_server, generate_latest, CONTENT_TYPE_LATEST
 )
 import structlog

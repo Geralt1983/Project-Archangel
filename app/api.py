@@ -11,6 +11,8 @@ from app.api_outbox import router as outbox_router
 from app.api_memory import router as memory_router
 from app.api_usage import router as usage_router
 from app.api_tasks import router as tasks_router
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
+from fastapi.responses import Response
 
 app = FastAPI(
     title="Project Archangel API",
@@ -23,7 +25,6 @@ app.include_router(usage_router)
 app.include_router(tasks_router)
 
 # Observability endpoints
-from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
 @app.get("/healthz")
 def healthz():
@@ -33,7 +34,6 @@ def healthz():
 def metrics():
     # Use default global registry
     data = generate_latest()
-    from fastapi.responses import Response
     return Response(content=data, media_type=CONTENT_TYPE_LATEST)
 
 def clickup():

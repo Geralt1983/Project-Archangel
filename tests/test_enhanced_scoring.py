@@ -3,16 +3,13 @@ Test suite for the enhanced scoring algorithm
 Demonstrates improvements over the traditional scoring approach
 """
 
-import pytest
 from datetime import datetime, timedelta, timezone
 from app.scoring import compute_score as traditional_score
 from app.scoring_enhanced import (
-    compute_enhanced_score,
     compute_score_with_details,
     EnhancedScoringEngine,
     FuzzyLogicEngine,
-    TaskUrgencyLevel,
-    TaskComplexityLevel
+    TaskUrgencyLevel
 )
 
 
@@ -119,7 +116,7 @@ class TestEnhancedScoringAlgorithm:
     
     def test_adaptive_ensemble_weighting(self):
         """Test adaptive ensemble method weighting"""
-        task = {
+        {
             "client": "beta_corp",
             "importance": 3.0,
             "effort_hours": 6.0,

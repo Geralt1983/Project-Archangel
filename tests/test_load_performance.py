@@ -7,11 +7,9 @@ import asyncio
 import aiohttp
 import time
 import statistics
-import json
 import random
 from datetime import datetime, timezone, timedelta
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import List, Dict, Any
+from typing import Dict, Any
 import logging
 
 # Configure logging
@@ -263,7 +261,7 @@ class ProjectArchangelLoadTester:
         
         # Generate requests at target rate
         end_time = time.time() + duration_seconds
-        request_interval = 1.0 / requests_per_second
+        1.0 / requests_per_second
         
         while time.time() < end_time:
             batch_start = time.time()

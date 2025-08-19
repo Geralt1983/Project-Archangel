@@ -6,7 +6,7 @@ Intelligent request/response caching with Redis backend and performance optimiza
 import time
 import json
 import hashlib
-from typing import Callable, Optional, Any, Dict, List
+from typing import Callable, Optional, Any, Dict
 from fastapi import Request, Response
 from fastapi.responses import JSONResponse
 import structlog
@@ -256,7 +256,7 @@ class AIResponseCache:
     async def invalidate_client_cache(self, client: str):
         """Invalidate all cached responses for a specific client"""
         try:
-            cache_manager = await get_cache_manager()
+            await get_cache_manager()
             # Implementation would depend on Redis key patterns
             # This is a placeholder for cache invalidation logic
             await logger.ainfo("Cache invalidated for client", client=client)

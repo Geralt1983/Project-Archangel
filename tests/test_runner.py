@@ -3,15 +3,13 @@ Comprehensive Test Runner for Project Archangel
 Orchestrates all testing phases and generates consolidated reports
 """
 
-import os
 import sys
-import asyncio
 import subprocess
 import time
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Any
+from typing import Dict, Any
 import logging
 
 # Configure logging
@@ -397,7 +395,7 @@ class ProjectArchangelTestRunner:
         print(f"Success Rate: {results['success_rate']:.1f}%")
         
         # Phase breakdown
-        print(f"\nPhase Results:")
+        print("\nPhase Results:")
         for phase_name, phase_data in results['phases'].items():
             if phase_data['result'] is True:
                 status = "PASSED"
@@ -409,7 +407,7 @@ class ProjectArchangelTestRunner:
             print(f"   {status:<10} {phase_data['description']:<40} ({phase_data['duration']:.1f}s)")
         
         # Overall assessment
-        print(f"\nOverall Assessment:")
+        print("\nOverall Assessment:")
         if results['success_rate'] >= 90:
             print("   EXCELLENT - Ready for production deployment")
         elif results['success_rate'] >= 75:

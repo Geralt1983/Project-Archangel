@@ -4,21 +4,17 @@ Tests core task orchestration functionality, database operations, and provider i
 """
 
 import pytest
-import asyncio
 import json
-import httpx
 import time
 from datetime import datetime, timezone, timedelta
-from unittest.mock import Mock, patch, AsyncMock
-from typing import Dict, Any, List
+from unittest.mock import Mock, patch
 
 # Import Project Archangel components
 from app.db_pg import init, get_conn, save_task, fetch_open_tasks, map_upsert, map_get_internal
 from app.scoring import compute_score
 from app.scoring_enhanced import compute_enhanced_score, compute_score_with_details
 from app.providers.clickup import ClickUpAdapter
-from app.providers.base import ProviderAdapter
-from app.utils.outbox import OutboxManager, OutboxOperation, make_idempotency_key
+from app.utils.outbox import OutboxManager, make_idempotency_key
 from app.utils.retry import retry, retry_async, next_backoff
 
 
@@ -404,7 +400,7 @@ class TestOutboxPattern:
             )
         
         # Verify status updates
-        updated_pending = outbox_manager.get_pending_operations(limit=5)
+        outbox_manager.get_pending_operations(limit=5)
         completed_count = len([op for op in pending if outbox_manager.get_operation_status(op.id) == "completed"])
         assert completed_count >= 2
     

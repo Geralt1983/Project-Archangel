@@ -5,10 +5,9 @@ Production-ready logging with correlation IDs, performance metrics, and security
 
 import os
 import sys
-import json
 import time
 import uuid
-from typing import Dict, Any, Optional
+from typing import Optional
 from contextvars import ContextVar
 import structlog
 from structlog.stdlib import LoggerFactory

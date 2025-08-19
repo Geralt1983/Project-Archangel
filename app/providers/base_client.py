@@ -1,6 +1,5 @@
 from __future__ import annotations
 import httpx
-import time
 from typing import Any, Dict, Optional
 from app.utils.retry import default_httpx_retryable, retry
 from app.utils.idempotency import make_idempotency_key

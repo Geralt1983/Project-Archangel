@@ -37,11 +37,11 @@ test: test.unit
 
 # Run unit tests against SQLite (no Docker required)
 test.unit:
-	pytest -q
+	pytest -q tests/test_scoring_simple.py tests/test_scoring.py tests/test_retry.py tests/test_idempotency_util.py
 
 # Run integration tests against Postgres in Docker
 test.int: up init
-	pytest -q
+	pytest -q -m integration
 
 api:
 	uvicorn app.main:app --reload
@@ -51,6 +51,9 @@ worker:
 
 lint:
 	ruff check .
+
+lint-fix:
+	ruff check . --fix --unsafe-fixes
 
 usage:
 	# Run Claude Code usage monitor in terminal
@@ -62,6 +65,9 @@ usage:
 	}
 	@export CLAUDE_CONFIG_DIR="${HOME}/Library/Application Support/Claude" && \
 		claude-monitor || python -m claude_monitor
+
+snap:
+	bash scripts/make_snapshot.sh
 
 dev:
 	# Start full dev environment with monitoring

@@ -17,7 +17,7 @@ import logging
 import numpy as np
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple
 from enum import Enum
 
 # Configure logging

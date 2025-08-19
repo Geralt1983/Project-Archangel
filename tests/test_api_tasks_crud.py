@@ -3,8 +3,6 @@ Test Suite for Task CRUD API Endpoints
 Tests the comprehensive task CRUD operations
 """
 
-import json
-import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -31,8 +29,9 @@ def test_api_tasks_crud():
         print(f"  FAIL   Task API import failed: {e}")
         return results
     
-    # Test 2: Validate TaskCreateRequest model
+# Test 2: Validate TaskCreateRequest model
     try:
+        from app.api_tasks import TaskCreateRequest
         task_request = TaskCreateRequest(
             title="Test Task",
             description="Test description",
@@ -90,9 +89,10 @@ def test_api_tasks_crud():
         results.append(("Utility functions", False, str(e)))
         print(f"  FAIL   Utility functions test: {e}")
     
-    # Test 4: Test router endpoints structure
+# Test 4: Test router endpoints structure
     try:
         from fastapi import APIRouter
+        from app.api_tasks import router
         assert isinstance(router, APIRouter)
         
         # Check that key endpoints are defined

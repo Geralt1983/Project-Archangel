@@ -11,6 +11,10 @@ from typing import Dict, List, Optional, Tuple, Any
 from dataclasses import dataclass, asdict, field
 from enum import Enum
 from pathlib import Path
+import structlog
+
+# Structured logger
+logger = structlog.get_logger(__name__)
 
 class TaskState(Enum):
     PENDING = "pending"

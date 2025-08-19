@@ -1,4 +1,3 @@
-import asyncio
 import hmac
 import hashlib
 import httpx

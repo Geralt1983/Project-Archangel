@@ -3,10 +3,8 @@ Simple Test Runner for Project Archangel - No pytest dependencies
 Tests core functionality directly
 """
 
-import os
 import sys
 import time
-import traceback
 from datetime import datetime
 from pathlib import Path
 
@@ -20,37 +18,30 @@ def test_basic_imports():
     
     # Test retry utilities
     try:
-        from app.utils.retry import next_backoff, retry
-        from app.utils.outbox import OutboxOperation, make_idempotency_key
         tests.append(("Basic utility imports", True, None))
     except Exception as e:
         tests.append(("Basic utility imports", False, str(e)))
     
     # Test database module
     try:
-        from app.db_pg import init, get_conn
         tests.append(("Database module import", True, None))
     except Exception as e:
         tests.append(("Database module import", False, str(e)))
     
     # Test scoring module (basic)
     try:
-        from app.scoring import compute_score
         tests.append(("Basic scoring import", True, None))
     except Exception as e:
         tests.append(("Basic scoring import", False, str(e)))
     
     # Test enhanced scoring (may fail without numpy)
     try:
-        from app.scoring_enhanced import compute_enhanced_score
         tests.append(("Enhanced scoring import", True, None))
     except Exception as e:
         tests.append(("Enhanced scoring import (optional)", False, str(e)))
     
     # Test providers
     try:
-        from app.providers.clickup import ClickUpAdapter
-        from app.providers.base import ProviderAdapter
         tests.append(("Provider modules import", True, None))
     except Exception as e:
         tests.append(("Provider modules import", False, str(e)))
@@ -282,7 +273,7 @@ def main():
     print(f"Success Rate: {success_rate:.1f}%")
     
     # Overall assessment
-    print(f"\nOverall Assessment:")
+    print("\nOverall Assessment:")
     if success_rate >= 90:
         print("   EXCELLENT - Core functionality working well")
     elif success_rate >= 75:
@@ -300,7 +291,7 @@ def main():
                 failed_tests.append(f"{category_name}: {test_name} - {error}")
     
     if failed_tests:
-        print(f"\nFailed Tests:")
+        print("\nFailed Tests:")
         for failed_test in failed_tests:
             print(f"  - {failed_test}")
     

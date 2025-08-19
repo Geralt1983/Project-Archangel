@@ -5,20 +5,19 @@ Comprehensive REST API for task management with Project Archangel
 
 import logging
 from datetime import datetime, timezone
-from typing import Dict, List, Optional, Any, Union
+from typing import Dict, List, Optional, Any
 from uuid import uuid4
 
-from fastapi import APIRouter, HTTPException, Query, Path, Depends, status
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, HTTPException, Query, Path, status
 from pydantic import BaseModel, Field, ValidationError
 
-from app.models import Task, TaskIntake, TaskStatus, Subtask
+from app.models import Subtask
 from app.db_pg import (
     save_task, fetch_open_tasks, get_conn, touch_task, 
-    map_upsert, map_get_internal
+    map_upsert
 )
 from app.orchestrator import (
-    create_orchestrator, TaskContext, TaskState, OrchestrationDecision
+    create_orchestrator, TaskContext, TaskState
 )
 from app.scoring import compute_score
 from app.triage_serena import triage_with_serena
@@ -409,7 +408,7 @@ async def list_tasks(
                     deadline = datetime.fromisoformat(deadline_str.replace("Z", "+00:00"))
                     if deadline > now:
                         continue
-                except:
+                except Exception:
                     continue
                     
             filtered_tasks.append(task)
@@ -438,7 +437,7 @@ async def list_tasks(
                 created = task.get("created_at", "")
                 try:
                     return datetime.fromisoformat(created.replace("Z", "+00:00")).timestamp()
-                except:
+                except Exception:
                     return 0
             elif sort_by == "deadline":
                 deadline = task.get("deadline", "")
@@ -446,13 +445,13 @@ async def list_tasks(
                     return 0 if sort_desc else float('inf')
                 try:
                     return datetime.fromisoformat(deadline.replace("Z", "+00:00")).timestamp()
-                except:
+                except Exception:
                     return 0 if sort_desc else float('inf')
             elif sort_by == "updated_at":
                 updated = task.get("updated_at", "")
                 try:
                     return datetime.fromisoformat(updated.replace("Z", "+00:00")).timestamp()
-                except:
+                except Exception:
                     return 0
             return 0
             
@@ -702,7 +701,7 @@ async def get_task_stats() -> TaskStatsResponse:
                     deadline = datetime.fromisoformat(deadline_str.replace("Z", "+00:00"))
                     if deadline < now:
                         overdue_count += 1
-                except:
+                except Exception:
                     pass
         
         # Score distribution

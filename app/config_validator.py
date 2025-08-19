@@ -5,7 +5,7 @@ Provides comprehensive validation of application configuration
 
 import os
 import logging
-from typing import Dict, Any, List, Optional, Union
+from typing import Dict, List, Optional
 from dataclasses import dataclass
 from urllib.parse import urlparse
 

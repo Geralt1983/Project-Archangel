@@ -5,11 +5,10 @@ Provides comprehensive database testing utilities and setup
 
 import os
 import sys
-import sqlite3
 import tempfile
 import shutil
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Optional
 from contextlib import contextmanager
 
 # Add project root to path
@@ -147,13 +146,13 @@ def setup_testing_environment():
         print("\nVerifying database operations...")
         results = manager.verify_database_operations()
         
-        print(f"\nDatabase Verification Results:")
+        print("\nDatabase Verification Results:")
         print(f"  Connection: {'PASS' if results['connection'] else 'FAIL'}")
         print(f"  Schema: {'PASS' if results['schema_exists'] else 'FAIL'}")
         print(f"  CRUD Operations: {'PASS' if results['crud_operations'] else 'FAIL'}")
         
         if results['errors']:
-            print(f"\nErrors:")
+            print("\nErrors:")
             for error in results['errors']:
                 print(f"  - {error}")
         
@@ -165,12 +164,12 @@ def setup_testing_environment():
         ])
         
         if all_passed:
-            print(f"\nDatabase environment setup SUCCESSFUL!")
-            print(f"   Test database is ready for comprehensive testing")
+            print("\nDatabase environment setup SUCCESSFUL!")
+            print("   Test database is ready for comprehensive testing")
             return True
         else:
-            print(f"\nDatabase environment setup has ISSUES")
-            print(f"   Please review errors above")
+            print("\nDatabase environment setup has ISSUES")
+            print("   Please review errors above")
             return False
 
 def create_test_data():

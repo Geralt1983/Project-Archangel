@@ -4,19 +4,18 @@ Integrates caching, observability, security, and performance optimizations.
 """
 
 import os
-import asyncio
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
-from fastapi import FastAPI, Request, Header, HTTPException, Query, Depends
+from fastapi import FastAPI, Request, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 
 # Core imports
 from app.providers.clickup import ClickUpAdapter
 from app.providers.trello import TrelloAdapter
 from app.providers.todoist import TodoistAdapter
 from app.triage_serena import triage_with_serena
-from app.db_pg import save_task, upsert_event, seen_delivery, touch_task, map_upsert, map_get_internal, get_conn
+from app.db_pg import save_task, upsert_event, touch_task, map_upsert, map_get_internal, get_conn
 from app.audit import log_event
 
 # Enhanced imports
@@ -33,6 +32,11 @@ from app.api_memory import router as memory_router
 from app.api_usage import router as usage_router
 
 import structlog
+import time
+from app.observability.logging_config import SecurityLogger
+
+# Instantiate security logger
+security_logger = SecurityLogger()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -52,7 +56,7 @@ async def lifespan(app: FastAPI):
     
     # Initialize Redis cache
     try:
-        cache_client = await get_cache_client()
+        await get_cache_client()
         await logger.ainfo("Redis cache connected")
     except Exception as e:
         await logger.aerror("Redis connection failed", error=str(e))
@@ -266,7 +270,7 @@ async def enhanced_intake(task: dict, provider: str = Query("clickup")):
         outbox = OutboxManager(get_conn)
         
         # Enqueue task creation
-        idem_key = outbox.enqueue(
+        outbox.enqueue(
             operation_type="create_task",
             endpoint="/tasks",
             request={
@@ -335,7 +339,7 @@ async def enhanced_intake(task: dict, provider: str = Query("clickup")):
                 "cached_response": False  # Would be True if from cache
             }
             
-        except Exception as e:
+        except Exception:
             # Log failure but don't fail request (outbox will retry)
             await business_logger.log_task_created(
                 task_id=t["id"],

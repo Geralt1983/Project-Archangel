@@ -3,7 +3,7 @@ import logging
 import random
 import time
 from dataclasses import dataclass
-from typing import Callable, Iterable, Optional, Awaitable, TypeVar, Tuple, Any, Type, Union
+from typing import Callable, Iterable, Optional, Awaitable, TypeVar, Tuple, Type, Union
 from functools import wraps
 
 # Configure logging
@@ -216,36 +216,8 @@ def _should_retry_http_error(e: BaseException) -> bool:
     return False
 
 
-def retry_with_backoff(config: Optional[RetryConfig] = None):
-    """Decorator for retrying functions with exponential backoff"""
-    if config is None:
-        config = RetryConfig()
-    
-    def decorator(func):
-        if asyncio.iscoroutinefunction(func):
-            @wraps(func)
-            async def async_wrapper(*args, **kwargs):
-                return await retry_async(
-                    lambda: func(*args, **kwargs),
-                    max_tries=config.max_tries,
-                    retry_if=_should_retry_http_error
-                )
-            return async_wrapper
-        else:
-            @wraps(func)
-            def sync_wrapper(*args, **kwargs):
-                return retry(
-                    lambda: func(*args, **kwargs),
-                    max_tries=config.max_tries,
-                    retry_if=_should_retry_http_error
-                )
-            return sync_wrapper
-    
-    return decorator
-
 
 def _should_retry_http_error(e: BaseException) -> bool:
-    """Determine if an HTTP error should trigger a retry"""
     try:
         import httpx
         if isinstance(e, httpx.HTTPStatusError):

@@ -4,20 +4,16 @@ Tests FastAPI endpoints, authentication, validation, and error handling
 """
 
 import pytest
-import asyncio
-import json
-import httpx
 from datetime import datetime, timezone, timedelta
-from unittest.mock import Mock, patch, AsyncMock
+from unittest.mock import patch
 from fastapi.testclient import TestClient
-from typing import Dict, Any
-
-# Mark this module as integration tests (skipped by default via pytest.ini)
-pytestmark = pytest.mark.integration
 
 # Import FastAPI app
 from app.api import app
 from app.db_pg import init
+
+# Mark this module as integration tests (skipped by default via pytest.ini)
+pytestmark = pytest.mark.integration
 
 
 class TestAPIEndpoints:
