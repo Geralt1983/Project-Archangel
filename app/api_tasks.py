@@ -67,10 +67,10 @@ class TaskCreateRequest(BaseModel):
     deadline: Optional[datetime] = None
     importance: int = Field(default=3, ge=1, le=5)
     effort_hours: Optional[float] = Field(default=1.0, ge=0.1, le=100.0)
-    labels: List[str] = Field(default_factory=list, max_items=10)
+    labels: List[str] = Field(default_factory=list, max_length=10)
     meta: Dict[str, Any] = Field(default_factory=dict)
-    checklist: List[str] = Field(default_factory=list, max_items=20)
-    subtasks: List[Dict[str, Any]] = Field(default_factory=list, max_items=10)
+    checklist: List[str] = Field(default_factory=list, max_length=20)
+    subtasks: List[Dict[str, Any]] = Field(default_factory=list, max_length=10)
     provider: Optional[str] = Field(default="internal", max_length=50)
     use_triage: bool = Field(default=True)
     use_orchestration: bool = Field(default=True)
@@ -85,7 +85,7 @@ class TaskUpdateRequest(BaseModel):
     deadline: Optional[datetime] = None
     importance: Optional[int] = Field(default=None, ge=1, le=5)
     effort_hours: Optional[float] = Field(default=None, ge=0.1, le=100.0)
-    labels: Optional[List[str]] = Field(default=None, max_items=10)
+    labels: Optional[List[str]] = Field(default=None, max_length=10)
     meta: Optional[Dict[str, Any]] = None
     status: Optional[str] = Field(default=None, max_length=20)
     recent_progress: Optional[float] = Field(default=None, ge=0.0, le=1.0)
@@ -351,7 +351,7 @@ async def list_tasks(
     importance: Optional[int] = Query(None, ge=1, le=5, description="Filter by importance"),
     has_deadline: Optional[bool] = Query(None, description="Filter by deadline presence"),
     overdue_only: bool = Query(False, description="Show only overdue tasks"),
-    sort_by: str = Query("score", regex="^(score|created_at|deadline|importance|updated_at)$"),
+    sort_by: str = Query("score", pattern="^(score|created_at|deadline|importance|updated_at)$"),
     sort_desc: bool = Query(True, description="Sort descending")
 ) -> TaskListResponse:
     """

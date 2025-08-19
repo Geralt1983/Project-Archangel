@@ -12,6 +12,9 @@ from unittest.mock import Mock, patch, AsyncMock
 from fastapi.testclient import TestClient
 from typing import Dict, Any
 
+# Mark this module as integration tests (skipped by default via pytest.ini)
+pytestmark = pytest.mark.integration
+
 # Import FastAPI app
 from app.api import app
 from app.db_pg import init
