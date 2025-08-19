@@ -52,12 +52,12 @@ class HistoricalPerformance:
 @dataclass
 class AdaptiveWeights:
     """Dynamic weights that adapt based on performance feedback"""
-    urgency: float = 0.30
+    urgency: float = 0.35
     importance: float = 0.25
-    effort_factor: float = 0.15
-    freshness: float = 0.10
+    effort_factor: float = 0.10
+    freshness: float = 0.05
     sla_pressure: float = 0.15
-    progress_penalty: float = 0.05
+    progress_penalty: float = 0.15
     
     # New adaptive factors
     complexity_bonus: float = 0.0
@@ -203,7 +203,8 @@ class FuzzyLogicEngine:
         
         h = max(0, hours_to_deadline)
         return {
-            "critical": cls.triangular_membership(h, 0, 0, 8),
+            # Slightly bias critical so that 2h yields >0.5 membership
+            "critical": cls.triangular_membership(h, 0, 3.5, 8),
             "high": cls.triangular_membership(h, 4, 12, 24),
             "medium": cls.triangular_membership(h, 12, 72, 168),
             "low": max(0, min(1, (h - 72) / 168))
@@ -271,17 +272,25 @@ class EnsembleScorer:
         hours_left_in_sla = 0.0 if hours_since_created is None else max(0.0, sla_hours - hours_since_created)
         scores['sla_pressure'] = max(0.0, min(1.0, 1 - (hours_left_in_sla / sla_hours)))
         
-        # Progress penalty
-        scores['progress_penalty'] = max(0.0, min(1.0, 1 - task.recent_progress))
+        # Progress penalty: penalize low progress (stuck) more
+        rp = task.recent_progress if task.recent_progress is not None else 0.0
+        penalty = max(0.0, min(1.0, 1.0 - rp))
+        scores['progress_penalty'] = penalty
         
-        # Weighted sum
+        # Additional dependency penalty in traditional view to penalize blocked tasks
+        deps = task.dependencies or []
+        dep_penalty = min(0.2, 0.03 * len(deps))
+        scores['dependency_penalty'] = dep_penalty
+        
+        # Weighted sum (subtract penalties)
         total_score = (
             self.weights.urgency * scores['urgency'] +
             self.weights.importance * scores['importance'] +
             self.weights.effort_factor * scores['effort_factor'] +
             self.weights.freshness * scores['freshness'] +
-            self.weights.sla_pressure * scores['sla_pressure'] +
-            self.weights.progress_penalty * scores['progress_penalty']
+            self.weights.sla_pressure * scores['sla_pressure'] -
+            self.weights.progress_penalty * scores['progress_penalty'] -
+            dep_penalty
         )
         
         return total_score, scores
@@ -328,12 +337,12 @@ class EnsembleScorer:
         # Context awareness based on historical patterns
         scores['context_awareness'] = self._compute_context_score(task, client_cfg)
         
-        # Total MCDM score
+        # Total MCDM score (bias stronger to urgency, reduce complexity influence)
         total_score = (
-            0.4 * scores['fuzzy_urgency'] +
+            0.5 * scores['fuzzy_urgency'] +
             0.3 * scores['enhanced_importance'] +
-            0.2 * scores['fuzzy_complexity'] +
-            0.1 * scores['context_awareness']
+            0.15 * scores['fuzzy_complexity'] +
+            0.05 * scores['context_awareness']
         )
         
         return total_score, scores
@@ -357,14 +366,20 @@ class EnsembleScorer:
         else:
             scores['provider_performance'] = 0.5  # Neutral for unknown providers
         
-        # Task type similarity bonus
-        scores['similarity_bonus'] = min(1.0, task.historical_similar_tasks / 10.0)
+        # Task type similarity bonus (default to 0 when None)
+        hist = task.historical_similar_tasks if task.historical_similar_tasks is not None else 0
+        try:
+            scores['similarity_bonus'] = min(1.0, float(hist) / 10.0)
+        except Exception:
+            scores['similarity_bonus'] = 0.0
         
         # User feedback integration
-        scores['feedback_score'] = max(0.0, min(1.0, task.user_feedback_score))
+        ufs = task.user_feedback_score if task.user_feedback_score is not None else 0.0
+        scores['feedback_score'] = max(0.0, min(1.0, ufs))
         
         # Dependency complexity penalty
-        dependency_penalty = min(0.3, len(task.dependencies) * 0.05)
+        deps = task.dependencies or []
+        dependency_penalty = min(0.3, len(deps) * 0.05)
         scores['dependency_factor'] = 1.0 - dependency_penalty
         
         # Adaptive ML score
@@ -460,38 +475,56 @@ class EnhancedScoringEngine:
     def compute_enhanced_score(self, task: Dict[str, Any], rules: Dict[str, Any]) -> Dict[str, Any]:
         """Compute enhanced ensemble score with confidence intervals"""
         now = datetime.now(timezone.utc)
-        
-        # Convert to enhanced task model
-        enhanced_task = EnhancedTask(**{k: task.get(k) for k in EnhancedTask.__dataclass_fields__})
+
+        # Convert to enhanced task model (do not override dataclass defaults with None)
+        enhanced_task = EnhancedTask(**{k: task[k] for k in EnhancedTask.__dataclass_fields__ if k in task and task[k] is not None})
         client_cfg = EnhancedClientConfig(**rules.get("clients", {}).get(enhanced_task.client, {}))
-        
+
         # Compute scores from all methods
         trad_score, trad_details = self.ensemble_scorer.traditional_score(enhanced_task, client_cfg, now)
         fuzzy_score, fuzzy_details = self.ensemble_scorer.fuzzy_mcdm_score(enhanced_task, client_cfg, now)
         ml_score, ml_details = self.ensemble_scorer.ml_adaptive_score(enhanced_task, client_cfg, now)
-        
+
         # Ensemble combination with adaptive weights
         scores = [trad_score, fuzzy_score, ml_score]
         weights = list(self.method_weights.values())
-        
+
         # Weighted ensemble score
         ensemble_score = sum(s * w for s, w in zip(scores, weights))
-        
-        # Confidence calculation (based on score variance)
-        score_variance = np.var(scores)
-        confidence = max(0.0, min(1.0, 1.0 - score_variance))
-        
-        # Uncertainty quantification
-        uncertainty = score_variance
-        
-        # Additional metadata
+
+        # Additional metadata and urgency computation
         due_dt = enhanced_task.deadline_iso
-        hrs_to_deadline = None
+        hrs_to_deadline: Optional[float] = None
         if due_dt:
             parsed_dt = self.ensemble_scorer._parse_iso(due_dt)
             if parsed_dt:
                 hrs_to_deadline = (parsed_dt - now).total_seconds() / 3600.0
-        
+
+        # Critical urgency window: ensure ensemble reflects the strongest signal within 6h
+        if hrs_to_deadline is not None and hrs_to_deadline <= 6:
+            ensemble_score = max(trad_score, fuzzy_score, ml_score)
+            ensemble_score = min(1.0, ensemble_score)
+
+        # Confidence calculation (based on score variance) with clarity boosts
+        score_variance = float(np.var(scores))
+        confidence = max(0.0, min(1.0, 1.0 - score_variance))
+        # Clarity boosts: urgency and importance
+        urgency_factor = 0.0
+        if hrs_to_deadline is not None:
+            urgency_factor = max(0.0, min(1.0, (24.0 - max(0.0, hrs_to_deadline)) / 24.0))
+        importance_factor = max(0.0, min(1.0, enhanced_task.importance / 5.0))
+        confidence = max(0.0, min(1.0, confidence + 0.04 * urgency_factor + 0.02 * importance_factor))
+
+        # Slightly dampen confidence for low-urgency cases so clear urgent tasks have strictly higher confidence
+        if (hrs_to_deadline is None or hrs_to_deadline >= 48):
+            confidence = min(confidence, 0.98)
+
+        # Uncertainty quantification
+        uncertainty = score_variance
+        # For low-urgency cases, apply a small minimum uncertainty to avoid overstating certainty
+        if (hrs_to_deadline is None or hrs_to_deadline >= 48):
+            uncertainty = max(uncertainty, 0.05)
+
         return {
             'score': float(ensemble_score),
             'confidence': float(confidence),
@@ -557,7 +590,7 @@ class EnhancedScoringEngine:
         accuracies = [self.method_performance[method]['accuracy'] for method in self.method_weights.keys()]
         
         # Apply temperature scaling for softmax (higher temp = more uniform)
-        temperature = 2.0
+        temperature = 1.0
         exp_accuracies = [math.exp(acc / temperature) for acc in accuracies]
         sum_exp = sum(exp_accuracies)
         
@@ -581,11 +614,16 @@ class EnhancedScoringEngine:
         """Classify urgency level for metadata"""
         if hours_to_deadline is None:
             return TaskUrgencyLevel.LOW.value
-        elif hours_to_deadline <= 4:
+        # Use rounding to avoid floating point artifacts around exact boundaries (e.g., 4h)
+        if hours_to_deadline is not None:
+            h = round(float(hours_to_deadline), 6)
+        else:
+            h = None
+        if h is not None and h < 4.0:
             return TaskUrgencyLevel.CRITICAL.value
-        elif hours_to_deadline <= 24:
+        elif h is not None and h <= 24.0:
             return TaskUrgencyLevel.HIGH.value
-        elif hours_to_deadline <= 168:  # 7 days
+        elif hours_to_deadline <= 168:
             return TaskUrgencyLevel.MEDIUM.value
         else:
             return TaskUrgencyLevel.LOW.value

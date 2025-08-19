@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="4" skipped="0" tests="5" time="144.155" timestamp="2025-08-18T22:07:06.109714-04:00" hostname="MacBookAir"><testcase classname="tests.test_api_endpoints.TestAPIAuthentication" name="test_protected_endpoints" time="0.027" /><testcase classname="tests.test_api_endpoints.TestAPIValidation" name="test_invalid_task_data" time="0.019"><failure message="assert 404 == 422&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">self = &lt;test_api_endpoints.TestAPIValidation object at 0x105da1590&gt;
+client = &lt;starlette.testclient.TestClient object at 0x1069a67b0&gt;
+
+    def test_invalid_task_data(self, client):
+        """Test validation of invalid task data"""
+        # Missing required fields
+        invalid_data = {
+            "description": "Missing title and client"
+        }
+    
+        response = client.post("/api/tasks", json=invalid_data)
+&gt;       assert response.status_code == 422  # Validation error
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       assert 404 == 422
+E        +  where 404 = &lt;Response [404 Not Found]&gt;.status_code
+
+tests/test_api_endpoints.py:196: AssertionError</failure></testcase><testcase classname="tests.test_api_endpoints.TestAPIPerformance" name="test_bulk_operations_performance" time="0.020"><failure message="assert 404 == 201&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">self = &lt;test_api_endpoints.TestAPIPerformance object at 0x1044b5bd0&gt;
+client = &lt;starlette.testclient.TestClient object at 0x104d567b0&gt;
+
+    def test_bulk_operations_performance(self, client):
+        """Test performance of bulk operations"""
+        import time
+    
+        # Create multiple tasks
+        tasks_data = []
+        for i in range(10):
+            task_data = {
+                "title": f"Bulk Test Task {i}",
+                "description": f"Performance test task {i}",
+                "client": "bulk-test-client",
+                "importance": (i % 5) + 1,
+                "effort_hours": (i % 8) + 1
+            }
+            tasks_data.append(task_data)
+    
+        # Time bulk creation
+        start_time = time.time()
+        for task_data in tasks_data:
+            response = client.post("/api/tasks", json=task_data)
+&gt;           assert response.status_code == 201
+E           assert 404 == 201
+E            +  where 404 = &lt;Response [404 Not Found]&gt;.status_code
+
+tests/test_api_endpoints.py:291: AssertionError</failure></testcase><testcase classname="tests.test_api_endpoints.TestAPIValidation" name="test_malformed_json" time="0.020"><failure message="assert 404 == 422&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">self = &lt;test_api_endpoints.TestAPIValidation object at 0x104075a70&gt;
+client = &lt;starlette.testclient.TestClient object at 0x1049567b0&gt;
+
+    def test_malformed_json(self, client):
+        """Test handling of malformed JSON"""
+        response = client.post(
+            "/api/tasks",
+            data="{'invalid': json}",  # Invalid JSON
+            headers={"Content-Type": "application/json"}
+        )
+&gt;       assert response.status_code == 422
+E       assert 404 == 422
+E        +  where 404 = &lt;Response [404 Not Found]&gt;.status_code
+
+tests/test_api_endpoints.py:217: AssertionError</failure></testcase><testcase classname="tests.test_api_endpoints.TestAPIAuthentication" name="test_api_key_authentication" time="0.004"><failure message="assert 404 in [200, 401]&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">self = &lt;test_api_endpoints.TestAPIAuthentication object at 0x105ea5a90&gt;
+client = &lt;starlette.testclient.TestClient object at 0x1068467b0&gt;
+
+    def test_api_key_authentication(self, client):
+        """Test API key authentication if implemented"""
+        # Test with invalid API key
+        headers = {"X-API-Key": "invalid-key"}
+        response = client.get("/api/tasks", headers=headers)
+    
+        # Should work for public endpoints
+&gt;       assert response.status_code in [200, 401]
+E       assert 404 in [200, 401]
+E        +  where 404 = &lt;Response [404 Not Found]&gt;.status_code
+
+tests/test_api_endpoints.py:261: AssertionError</failure></testcase></testsuite></testsuites>

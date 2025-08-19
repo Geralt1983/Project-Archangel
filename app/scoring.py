@@ -37,9 +37,14 @@ class ClientConfig:
     Attributes:
         importance_bias: Multiplier for task importance (default: 1.0)
         sla_hours: SLA deadline in hours for client tasks (default: 72)
+        priority_multiplier: Optional multiplier used by some rule sets (ignored here)
+        complexity_preference: Optional hint for complexity leaning (ignored here)
     """
     importance_bias: float = 1.0
     sla_hours: int = 72
+    # Accept extra fields that may appear in shared rules without affecting classic scoring
+    priority_multiplier: float = 1.0
+    complexity_preference: float = 0.5
     
     def __post_init__(self) -> None:
         """Validate configuration parameters"""
@@ -47,6 +52,11 @@ class ClientConfig:
             raise ValueError(f"importance_bias must be non-negative, got {self.importance_bias}")
         if self.sla_hours <= 0:
             raise ValueError(f"sla_hours must be positive, got {self.sla_hours}")
+        # Clamp optional fields to reasonable ranges to avoid surprises
+        if self.priority_multiplier <= 0:
+            self.priority_multiplier = 1.0
+        if not 0.0 <= self.complexity_preference <= 1.0:
+            self.complexity_preference = 0.5
 
 
 @dataclass
@@ -111,13 +121,17 @@ def compute_score(task: Dict[str, Any], rules: Dict[str, Any]) -> float:
     now = datetime.now(timezone.utc)
 
     try:
-        # Map incoming dictionary to the Task dataclass, ignoring extra keys
-        task_fields = {k: task.get(k) for k in Task.__dataclass_fields__}
+        # Map incoming dictionary to the Task dataclass, but do not override defaults with None
+        task_fields = {k: task[k] for k in Task.__dataclass_fields__ if k in task and task[k] is not None}
         t = Task(**task_fields)
         
-        # Get client configuration with defaults
+        # Get client configuration with defaults; filter unknown keys defensively
         client_rules = rules.get("clients", {}).get(t.client, {})
-        client_cfg = ClientConfig(**client_rules)
+        if not isinstance(client_rules, dict):
+            client_rules = {}
+        allowed = set(ClientConfig.__dataclass_fields__.keys())
+        filtered_client_rules = {k: v for k, v in client_rules.items() if k in allowed}
+        client_cfg = ClientConfig(**filtered_client_rules)
         
         logger.debug(f"Processing task for client '{t.client}' with SLA {client_cfg.sla_hours}h")
         
