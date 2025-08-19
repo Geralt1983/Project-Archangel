@@ -1,5 +1,7 @@
 # Project Archangel
 
+[![CI](https://github.com/Geralt1983/Project-Archangel/actions/workflows/ci.yml/badge.svg)](https://github.com/Geralt1983/Project-Archangel/actions/workflows/ci.yml)
+
 **AI-Powered Task Orchestration System**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -62,6 +64,16 @@ PROMETHEUS_ENDPOINT=http://prometheus:9090
 ```
 
 ### 2. Quick Start with Docker
+
+Supabase (Postgres) is supported out of the box. For local or CI runs against Supabase, export your DATABASE_URL as the Supabase connection string including `sslmode=require`.
+
+- Local integration tests via Supabase:
+  - export DATABASE_URL=postgresql://<user>:<password>@<host>:5432/<db>?sslmode=require
+  - make test.supabase
+
+- CI integration tests via Supabase:
+  - Add GitHub repo secret SUPABASE_DATABASE_URL with the connection string
+  - CI will automatically run integration tests if the secret is present
 
 ```bash
 # Start all services
