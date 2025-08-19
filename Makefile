@@ -43,6 +43,15 @@ test.unit:
 test.int: up init
 	pytest -q -m integration
 
+# Run integration tests against Supabase (requires DATABASE_URL to be set in env)
+test.supabase:
+	@if [ -z "$$DATABASE_URL" ]; then \
+		echo "ERROR: DATABASE_URL not set. Export your Supabase connection string with sslmode=require."; \
+		exit 1; \
+	fi
+	python -c "from app.db_pg import init; init(); print('Tables ready')"
+	pytest -q -m integration
+
 api:
 	uvicorn app.main:app --reload
 
