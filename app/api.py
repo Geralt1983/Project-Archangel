@@ -290,6 +290,70 @@ async def intake(task: dict, provider: str = Query("clickup")):
         "reasoning": decision.reasoning[:3]  # Top 3 reasons
     }
 
+@app.post("/tasks/intake/simple")
+async def intake_simple(task: dict):
+    """Simple task intake without external provider integration"""
+    import uuid
+    from app.orchestrator import create_orchestrator, TaskContext, TaskState
+    
+    # Generate task ID
+    t = task.copy()
+    t["id"] = str(uuid.uuid4())
+    t["created_at"] = datetime.now(timezone.utc).isoformat()
+    t["updated_at"] = datetime.now(timezone.utc).isoformat()
+    
+    # Basic orchestration without external calls
+    orchestrator = create_orchestrator()
+    task_context = TaskContext(
+        id=t["id"],
+        title=t["title"],
+        description=t.get("description", ""),
+        client=t["client"],
+        provider="internal",
+        state=TaskState.PENDING,
+        importance=t.get("importance", 3.0),
+        urgency=0.5,
+        value=0.6,
+        time_sensitivity=0.5,
+        sla_breach=0.3,
+        client_recent_allocation=0.0,
+        assignee_current_wip=2,
+        age_hours=0.0,
+        last_activity_hours=0.0,
+        effort_hours=t.get("effort_hours", 1.0),
+        deadline=datetime.fromisoformat(t["deadline"].replace("Z", "+00:00")) if t.get("deadline") else None,
+        created_at=datetime.now(timezone.utc)
+    )
+    
+    # Get orchestration decision
+    decision = orchestrator.orchestrate_task(task_context)
+    t["score"] = decision.score
+    t["orchestration_meta"] = {
+        "recommended_action": decision.recommended_action,
+        "reasoning": decision.reasoning,
+        "staleness_curve": decision.staleness_curve,
+        "fairness_penalty": decision.fairness_penalty,
+        "wip_enforcement": {
+            "can_assign": decision.wip_enforcement.get("can_assign", True),
+            "current_wip": decision.wip_enforcement.get("current_wip", 0),
+            "limit": decision.wip_enforcement.get("limit", 3),
+            "utilization": decision.wip_enforcement.get("utilization", 0.0)
+        }
+    }
+    
+    # Save task to database
+    save_task(t)
+    
+    return {
+        "id": t["id"], 
+        "provider": "internal", 
+        "external_id": None,
+        "status": "created", 
+        "score": t["score"],
+        "orchestration": decision.recommended_action,
+        "reasoning": decision.reasoning[:3]  # Top 3 reasons
+    }
+
 @app.post("/triage/run")
 async def triage_run(task: dict):
     return triage_with_serena(task, provider="clickup")
