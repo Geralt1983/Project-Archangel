@@ -66,7 +66,45 @@ def get_adapter(name: str):
 
 @app.get("/health")
 def health():
-    return {"ok": True}
+    """Basic health check endpoint"""
+    return {"ok": True, "status": "healthy", "timestamp": datetime.now(timezone.utc).isoformat()}
+
+@app.get("/health/detailed")
+async def health_detailed():
+    """Detailed health check with component status"""
+    from app.db_pg import get_conn
+    
+    health_status = {
+        "status": "healthy",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "version": "1.0.0",
+        "components": {
+            "database": "unknown",
+            "redis": "unknown",
+            "providers": {}
+        }
+    }
+    
+    # Check database
+    try:
+        conn = get_conn()
+        if conn:
+            health_status["components"]["database"] = "healthy"
+        else:
+            health_status["components"]["database"] = "unhealthy"
+    except Exception as e:
+        health_status["components"]["database"] = f"error: {str(e)}"
+        health_status["status"] = "degraded"
+    
+    # Check providers
+    for provider_name, provider_func in ADAPTERS.items():
+        try:
+            provider = provider_func()
+            health_status["components"]["providers"][provider_name] = "configured"
+        except Exception:
+            health_status["components"]["providers"][provider_name] = "not_configured"
+    
+    return health_status
 
 @app.post("/webhooks/clickup")
 @app.post("/api/webhooks/clickup")

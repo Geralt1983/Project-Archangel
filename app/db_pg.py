@@ -18,10 +18,16 @@ def get_db_config() -> Tuple[Optional[str], bool]:
         ValueError: If DATABASE_URL format is invalid
     """
     database_url = os.getenv("DATABASE_URL")
-    if database_url and not (database_url.startswith("sqlite") or database_url.startswith("postgresql")):
+    
+    # Provide default SQLite configuration for development
+    if not database_url:
+        database_url = "sqlite:///./project_archangel.db"
+        logger.info("No DATABASE_URL configured, using default SQLite database")
+    
+    if not (database_url.startswith("sqlite") or database_url.startswith("postgresql")):
         raise ValueError(f"Unsupported database URL format: {database_url}")
     
-    is_sqlite = database_url and database_url.startswith("sqlite")
+    is_sqlite = database_url.startswith("sqlite")
     return database_url, is_sqlite
 
 _conn_lock = threading.Lock()

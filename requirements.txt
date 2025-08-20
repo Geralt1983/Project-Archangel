@@ -24,7 +24,17 @@ opentelemetry-exporter-jaeger>=1.20.0
 pytest>=7.0.0
 pytest-asyncio>=0.21.0
 
-# Optional development tools
+# Development and Code Quality
 ruff>=0.1.0
-structlog>=24.1.0
-prometheus-client>=0.20.0
+black>=23.0.0
+mypy>=1.0.0
+
+# Security
+cryptography>=41.0.0
+python-jose[cryptography]>=3.3.0
+passlib[bcrypt]>=1.7.4
+
+# Utilities
+python-multipart>=0.0.6
+python-dotenv>=1.0.0
+pyyaml>=6.0
