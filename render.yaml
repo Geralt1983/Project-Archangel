@@ -43,8 +43,8 @@ databases:
   - name: project-archangel-db
     databaseName: archangel
     user: archangel
-    plan: starter
+    plan: free
 
   # Redis Database
   - name: project-archangel-redis
-    plan: starter
+    plan: free
