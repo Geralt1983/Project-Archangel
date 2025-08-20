@@ -106,6 +106,16 @@ async def health_detailed():
     
     return health_status
 
+@app.post("/init/database")
+async def init_database():
+    """Initialize database tables"""
+    try:
+        from scripts.init_db import init_database as init_db_func
+        init_db_func()
+        return {"status": "success", "message": "Database initialized successfully"}
+    except Exception as e:
+        return {"status": "error", "message": f"Database initialization failed: {str(e)}"}
+
 @app.post("/webhooks/clickup")
 @app.post("/api/webhooks/clickup")
 async def clickup_webhook(request: Request):
