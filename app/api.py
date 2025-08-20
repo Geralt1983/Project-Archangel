@@ -191,7 +191,7 @@ async def clickup_webhook(request: Request):
     if ext:
         internal = map_get_internal("clickup", str(ext))
         if internal:
-            touch_task(internal, datetime.now(timezone.utc).isoformat())
+            touch_task(internal)
     log_event("webhook", {"provider": "clickup", "type": event.get("event")})
     return {"ok": True}
 
