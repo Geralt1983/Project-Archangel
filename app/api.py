@@ -236,22 +236,23 @@ async def intake(task: dict, provider: str = Query("clickup")):
         created = adapter.create_task(t)
         external_id = created.get("id")
         
-        # Enqueue follow-up operations
+        # Process follow-up operations inline (for free plan compatibility)
         if t.get("subtasks") and external_id:
-            outbox.enqueue(
-                operation_type="create_subtasks",
-                endpoint=f"/tasks/{external_id}/subtasks",
-                request={"parent_id": external_id, "subtasks": t["subtasks"]},
-                provider=adapter.name
-            )
+            try:
+                # Create subtasks directly
+                for subtask in t["subtasks"]:
+                    adapter.create_subtask(external_id, subtask)
+                log_event("subtasks_created", {"task_id": external_id, "count": len(t["subtasks"])})
+            except Exception as e:
+                log_event("subtask_creation_failed", {"task_id": external_id, "error": str(e)})
         
         if t.get("checklist") and external_id:
-            outbox.enqueue(
-                operation_type="add_checklist",
-                endpoint=f"/tasks/{external_id}/checklist",
-                request={"task_id": external_id, "items": t["checklist"]},
-                provider=adapter.name
-            )
+            try:
+                # Add checklist items directly
+                adapter.add_checklist_items(external_id, t["checklist"])
+                log_event("checklist_added", {"task_id": external_id, "count": len(t["checklist"])})
+            except Exception as e:
+                log_event("checklist_creation_failed", {"task_id": external_id, "error": str(e)})
         
         t["external_id"] = external_id
         t["provider"] = adapter.name
@@ -261,7 +262,7 @@ async def intake(task: dict, provider: str = Query("clickup")):
         log_event("pushed", {"task_id": t["id"], "external_id": external_id, "provider": adapter.name})
         
     except Exception as e:
-        # If immediate creation fails, outbox worker will retry
+        # If immediate creation fails, outbox worker will retry (when available)
         log_event("outbox_fallback", {"task_id": t["id"], "error": str(e), "provider": adapter.name})
         
         t["external_id"] = None
@@ -273,7 +274,7 @@ async def intake(task: dict, provider: str = Query("clickup")):
     return {
         "id": t["id"], "provider": adapter.name, "external_id": external_id,
         "status": "triaged", "score": t["score"],
-        "subtasks_created": len(t["subtasks"]), "checklist_items": len(t["checklist"]),
+        "subtasks_created": len(t.get("subtasks", [])), "checklist_items": len(t.get("checklist", [])),
         "serena_policy": t.get("serena_meta", {}).get("policy", {}),
         "orchestration": decision.recommended_action,
         "reasoning": decision.reasoning[:3]  # Top 3 reasons
