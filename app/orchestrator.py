@@ -341,6 +341,16 @@ class StateManager:
             
         logger.debug(f"Saving decision for task {decision.task_id}")
         try:
+            # Convert decision to dict with datetime serialization
+            decision_dict = asdict(decision)
+            # Convert datetime objects to ISO format strings
+            if 'timestamp' in decision_dict and decision_dict['timestamp']:
+                decision_dict['timestamp'] = decision_dict['timestamp'].isoformat()
+            if 'deadline' in decision_dict and decision_dict['deadline']:
+                decision_dict['deadline'] = decision_dict['deadline'].isoformat()
+            if 'created_at' in decision_dict and decision_dict['created_at']:
+                decision_dict['created_at'] = decision_dict['created_at'].isoformat()
+            
             with sqlite3.connect(self.db_path) as conn:
                 conn.execute("""
                     INSERT OR REPLACE INTO task_scores 
@@ -350,7 +360,7 @@ class StateManager:
                     decision.task_id,
                     decision.score,
                     json.dumps({}),  # Will be filled with component scores
-                    json.dumps(asdict(decision)),
+                    json.dumps(decision_dict),
                     decision.timestamp.isoformat()
                 ))
             
@@ -368,6 +378,9 @@ class StateManager:
         except sqlite3.Error as e:
             logger.error(f"Failed to save decision for task {decision.task_id}: {e}")
             raise
+        except Exception as e:
+            logger.warning(f"Failed to persist decision for task {decision.task_id}: {e}")
+            # Don't raise the exception to avoid breaking the main flow
             
     def get_client_recent_allocation(self, client: str, hours_lookback: int = 168) -> float:
         """Get recent hour allocation for fairness calculations"""
