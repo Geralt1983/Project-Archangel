@@ -62,7 +62,12 @@ def todoist():
 ADAPTERS = {"clickup": clickup, "trello": trello, "todoist": todoist}
 
 def get_adapter(name: str):
-    return ADAPTERS.get(name, clickup)()
+    try:
+        return ADAPTERS.get(name, clickup)()
+    except Exception as e:
+        # If adapter fails to initialize (e.g., missing env vars), return None
+        logger.warning(f"Failed to initialize {name} adapter: {e}")
+        return None
 
 @app.get("/health")
 def health():
@@ -115,6 +120,44 @@ async def init_database():
         return {"status": "success", "message": "Database initialized successfully"}
     except Exception as e:
         return {"status": "error", "message": f"Database initialization failed: {str(e)}"}
+
+@app.get("/api/v1/tasks/list")
+async def list_tasks():
+    """List all tasks from the database"""
+    try:
+        conn = get_conn()
+        cursor = conn.cursor()
+        
+        # Check if tasks table exists
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='tasks'")
+        if not cursor.fetchone():
+            return {"tasks": [], "message": "No tasks table found"}
+        
+        # Get recent tasks
+        cursor.execute("""
+            SELECT id, title, description, client, score, created_at, external_id, provider 
+            FROM tasks 
+            ORDER BY created_at DESC 
+            LIMIT 20
+        """)
+        
+        tasks = []
+        for row in cursor.fetchall():
+            tasks.append({
+                "id": row[0],
+                "title": row[1],
+                "description": row[2],
+                "client": row[3],
+                "score": row[4],
+                "created_at": row[5],
+                "external_id": row[6],
+                "provider": row[7]
+            })
+        
+        return {"tasks": tasks, "count": len(tasks)}
+        
+    except Exception as e:
+        return {"error": str(e), "tasks": []}
 
 @app.post("/webhooks/clickup")
 @app.post("/api/webhooks/clickup")
@@ -186,6 +229,10 @@ async def intake(task: dict, provider: str = Query("clickup")):
     from app.utils.outbox import OutboxManager
     
     adapter = get_adapter(provider)
+    if adapter is None:
+        # Fall back to simple internal processing
+        return await intake_simple(task)
+    
     t = triage_with_serena(task, provider=adapter.name)
     
     # Use new orchestrator for enhanced scoring and decision making
