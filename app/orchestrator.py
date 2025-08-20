@@ -419,7 +419,17 @@ class TaskOrchestrator:
         try:
             self.scoring_engine = ScoringEngine(config)
             self.wip_enforcer = WIPEnforcer(config)
-            self.state_manager = StateManager()
+            
+            # Use main database path instead of orchestrator.db
+            from app.db_pg import get_db_config
+            _, is_sqlite = get_db_config()
+            if is_sqlite:
+                db_path = "project_archangel.db"
+            else:
+                # For PostgreSQL, use a local SQLite file for orchestrator state
+                db_path = "orchestrator.db"
+            
+            self.state_manager = StateManager(db_path)
             logger.info("Task orchestrator initialized successfully")
         except Exception as e:
             logger.error(f"Failed to initialize orchestrator: {e}")
