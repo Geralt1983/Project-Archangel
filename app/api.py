@@ -1,4 +1,5 @@
 import os
+import logging
 from datetime import datetime, timezone
 from fastapi import FastAPI, Request, Header, HTTPException, Query
 from app.providers.clickup import ClickUpAdapter
@@ -13,6 +14,9 @@ from app.api_usage import router as usage_router
 from app.api_tasks import router as tasks_router
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from fastapi.responses import Response
+
+# Initialize logger
+logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title="Project Archangel API",
