@@ -303,33 +303,43 @@ def save_task(task: dict):
         c = conn.cursor()
         if IS_SQLITE:
             sql = """
-                insert or replace into tasks(id, external_id, provider, payload, score, status, client, created_at, updated_at)
-                    values(?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
-                """
+                insert or replace into tasks(
+                    id, title, description, client, created_at, updated_at, 
+                    score, status, external_id, provider, importance, effort_hours
+                ) values(?, ?, ?, ?, ?, datetime('now'), ?, ?, ?, ?, ?, ?)
+            """
         else:
             sql = """
-                insert into tasks(id, external_id, provider, payload, score, status, client, created_at, updated_at)
-                values(%s, %s, %s, %s::jsonb, %s, %s, %s, %s, now())
+                insert into tasks(
+                    id, title, description, client, created_at, updated_at, 
+                    score, status, external_id, provider, importance, effort_hours
+                ) values(%s, %s, %s, %s, %s, now(), %s, %s, %s, %s, %s, %s)
                 on conflict(id) do update set
-                    external_id = excluded.external_id,
-                    provider = excluded.provider,
-                    payload = excluded.payload,
+                    title = excluded.title,
+                    description = excluded.description,
+                    client = excluded.client,
                     score = excluded.score,
                     status = excluded.status,
-                    client = excluded.client,
+                    external_id = excluded.external_id,
+                    provider = excluded.provider,
+                    importance = excluded.importance,
+                    effort_hours = excluded.effort_hours,
                     updated_at = now()
             """
         c.execute(
             sql,
             (
                 task["id"],
-                task.get("external_id"),
-                task.get("provider", "clickup"),
-                json.dumps(task),
-                task.get("score", 0.0),
-                task.get("status", "triaged"),
+                task.get("title", ""),
+                task.get("description", ""),
                 task.get("client", ""),
-                task["created_at"],
+                task.get("created_at"),
+                task.get("score", 0.0),
+                task.get("status", "pending"),
+                task.get("external_id"),
+                task.get("provider", "internal"),
+                task.get("importance", 3),
+                task.get("effort_hours", 1.0),
             ),
         )
 
