@@ -1,7 +1,0 @@
-{
-  "mcp_server": { "command": "mzr", "args": ["serve"] },
-  "index_roots": ["."],
-  "embeddings": { "provider": "tfidf" },
-  "allow_bridges": { "cli": true, "http": false }
-}
-
