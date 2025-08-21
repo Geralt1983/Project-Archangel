@@ -217,17 +217,23 @@ export default function BoardPage() {
   }
 
   const handleBump = async (taskId: string, el: HTMLElement) => {
+    console.log("[v0] handleBump called with taskId:", taskId)
     const task = tasks.find((t) => t.id === taskId)
-    if (!task) return
+    if (!task) {
+      console.log("[v0] Task not found for bump")
+      return
+    }
 
     // Check WIP cap
     if (!canEnterDoing(task)) {
+      console.log("[v0] WIP cap exceeded, denying bump")
       el.classList.add("bumpDeny")
       await delay(400)
       el.classList.remove("bumpDeny")
       return
     }
 
+    console.log("[v0] Starting bump animation sequence")
     // Stage 1: Elevate
     el.classList.add("bumpElevate")
     await delay(140)
@@ -240,10 +246,12 @@ export default function BoardPage() {
     // Stage 3: Fly
     el.classList.remove("bumpWiggle")
     if (doingAnchorRef.current) {
+      console.log("[v0] Flying to doing column")
       await animateFly(el, doingAnchorRef.current)
     }
 
     // Stage 4: Commit state change
+    console.log("[v0] Committing state change")
     setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, status: "doing" } : t)))
   }
 
@@ -256,6 +264,7 @@ export default function BoardPage() {
   }
 
   const handleBurn = (taskId: string) => {
+    console.log("[v0] handleBurn called with taskId:", taskId)
     setTasks((prev) => prev.filter((task) => task.id !== taskId))
     // Close drawer if the burned task was selected
     if (selectedTask?.id === taskId) {

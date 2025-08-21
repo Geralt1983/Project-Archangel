@@ -43,14 +43,16 @@ export function ClientDial() {
   let cumulativeAngle = 0
   const segments = attentionData.map((data) => {
     const startAngle = cumulativeAngle
-    const endAngle = cumulativeAngle + (data.percentage / 100) * 360
+    const angleSpan = (data.percentage / 100) * 360
+    const endAngle = cumulativeAngle + angleSpan
     cumulativeAngle = endAngle
 
     return {
       ...data,
       startAngle,
       endAngle,
-      path: createArcPath(50, 50, 35, startAngle, endAngle),
+      angleSpan,
+      path: createArcPath(60, 60, 35, startAngle, endAngle),
     }
   })
 
@@ -129,13 +131,22 @@ export function ClientDial() {
 }
 
 function createArcPath(cx: number, cy: number, radius: number, startAngle: number, endAngle: number): string {
-  const start = polarToCartesian(cx, cy, radius, startAngle)
-  const end = polarToCartesian(cx, cy, radius, endAngle)
-  const largeArcFlag = endAngle - startAngle > 180 ? "1" : "0"
+  // Ensure we don't have negative angles or angles > 360
+  const normalizedStart = ((startAngle % 360) + 360) % 360
+  const normalizedEnd = ((endAngle % 360) + 360) % 360
 
-  // Handle full circle case
-  if (endAngle - startAngle >= 360) {
-    const mid = polarToCartesian(cx, cy, radius, startAngle + 180)
+  const start = polarToCartesian(cx, cy, radius, normalizedStart)
+  const end = polarToCartesian(cx, cy, radius, normalizedEnd)
+
+  // Calculate the actual angle span, handling wrap-around
+  let angleSpan = endAngle - startAngle
+  if (angleSpan < 0) angleSpan += 360
+
+  const largeArcFlag = angleSpan > 180 ? "1" : "0"
+
+  // Handle full circle case (360 degrees)
+  if (angleSpan >= 359.9) {
+    const mid = polarToCartesian(cx, cy, radius, normalizedStart + 180)
     return [
       "M",
       start.x,
@@ -163,10 +174,11 @@ function createArcPath(cx: number, cy: number, radius: number, startAngle: numbe
 }
 
 function polarToCartesian(centerX: number, centerY: number, radius: number, angleInDegrees: number) {
-  const angleInRadians = ((angleInDegrees - 90) * Math.PI) / 180.0
+  // Convert to radians and adjust so 0 degrees is at 12 o'clock (top)
+  const angleInRadians = (angleInDegrees * Math.PI) / 180.0
   return {
-    x: centerX + radius * Math.cos(angleInRadians),
-    y: centerY + radius * Math.sin(angleInRadians),
+    x: centerX + radius * Math.sin(angleInRadians),
+    y: centerY - radius * Math.cos(angleInRadians),
   }
 }
 
