@@ -39,7 +39,7 @@ export const mockClients: Client[] = [
     weight: 0.4,
     defaultSlaTier: "High",
     wipClass: "Critical",
-    color: "bg-red-100 text-red-800 border-red-200",
+    color: "#ef4444", // Changed from Tailwind classes to hex color for red
   },
   {
     id: "radiology",
@@ -47,7 +47,7 @@ export const mockClients: Client[] = [
     weight: 0.35,
     defaultSlaTier: "Medium",
     wipClass: "Standard",
-    color: "bg-blue-100 text-blue-800 border-blue-200",
+    color: "#3b82f6", // Changed from Tailwind classes to hex color for blue
   },
   {
     id: "oncology",
@@ -55,7 +55,7 @@ export const mockClients: Client[] = [
     weight: 0.25,
     defaultSlaTier: "High",
     wipClass: "Critical",
-    color: "bg-green-100 text-green-800 border-green-200",
+    color: "#10b981", // Changed from Tailwind classes to hex color for green
   },
 ]
 

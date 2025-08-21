@@ -171,6 +171,11 @@ function polarToCartesian(centerX: number, centerY: number, radius: number, angl
 }
 
 function getSegmentColor(clientId: string): string {
-  const client = mockClients.find((c) => c.id === clientId)
-  return client?.color || "#6b7280"
+  const colorMap: Record<string, string> = {
+    cardiology: "#ef4444", // red-500
+    radiology: "#3b82f6", // blue-500
+    oncology: "#10b981", // emerald-500
+  }
+
+  return colorMap[clientId] || "#6b7280" // gray-500 fallback
 }
