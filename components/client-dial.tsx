@@ -129,11 +129,37 @@ export function ClientDial() {
 }
 
 function createArcPath(cx: number, cy: number, radius: number, startAngle: number, endAngle: number): string {
-  const start = polarToCartesian(cx, cy, radius, endAngle)
-  const end = polarToCartesian(cx, cy, radius, startAngle)
-  const largeArcFlag = endAngle - startAngle <= 180 ? "0" : "1"
+  const start = polarToCartesian(cx, cy, radius, startAngle)
+  const end = polarToCartesian(cx, cy, radius, endAngle)
+  const largeArcFlag = endAngle - startAngle > 180 ? "1" : "0"
 
-  return ["M", start.x, start.y, "A", radius, radius, 0, largeArcFlag, 0, end.x, end.y].join(" ")
+  // Handle full circle case
+  if (endAngle - startAngle >= 360) {
+    const mid = polarToCartesian(cx, cy, radius, startAngle + 180)
+    return [
+      "M",
+      start.x,
+      start.y,
+      "A",
+      radius,
+      radius,
+      0,
+      1,
+      1,
+      mid.x,
+      mid.y,
+      "A",
+      radius,
+      radius,
+      0,
+      1,
+      1,
+      start.x,
+      start.y,
+    ].join(" ")
+  }
+
+  return ["M", start.x, start.y, "A", radius, radius, 0, largeArcFlag, 1, end.x, end.y].join(" ")
 }
 
 function polarToCartesian(centerX: number, centerY: number, radius: number, angleInDegrees: number) {
@@ -145,10 +171,6 @@ function polarToCartesian(centerX: number, centerY: number, radius: number, angl
 }
 
 function getSegmentColor(clientId: string): string {
-  const colors = {
-    cardiology: "#ef4444", // red-500
-    radiology: "#3b82f6", // blue-500
-    oncology: "#10b981", // emerald-500
-  }
-  return colors[clientId as keyof typeof colors] || "#6b7280"
+  const client = mockClients.find((c) => c.id === clientId)
+  return client?.color || "#6b7280"
 }
