@@ -1,0 +1,79 @@
+# Docker Compose override for MCP integration
+# Usage: docker compose -f docker-compose.yml -f docker-compose.mcp.yml up
+
+version: "3.9"
+
+services:
+  # ClickUp MCP Server
+  mcp-server:
+    image: node:18-alpine
+    container_name: archangel_mcp_server
+    working_dir: /app
+    ports:
+      - "3231:3231"
+    environment:
+      - CLICKUP_API_KEY=${CLICKUP_API_KEY}
+      - CLICKUP_TEAM_ID=${CLICKUP_TEAM_ID}
+      - CLICKUP_WORKSPACE_ID=${CLICKUP_WORKSPACE_ID:-}
+      - CLICKUP_SPACE_ID=${CLICKUP_SPACE_ID:-}
+      - CLICKUP_LIST_ID=${CLICKUP_LIST_ID:-}
+      - PORT=3231
+      - NODE_ENV=production
+    command: >
+      sh -c "
+        npm install -g @taazkareem/clickup-mcp-server &&
+        clickup-mcp-server --port 3231 --host 0.0.0.0
+      "
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3231/health", "||", "exit", "1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - archangel-network
+    restart: unless-stopped
+    volumes:
+      - mcp-logs:/app/logs
+
+  # Update API service to include MCP configuration
+  api:
+    environment:
+      # Add MCP-specific environment variables
+      - MCP_SERVER_ENABLED=true
+      - MCP_SERVER_HOST=mcp-server
+      - MCP_SERVER_PORT=3231
+      - MCP_SERVER_ENDPOINT=/mcp
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      mcp-server:
+        condition: service_healthy
+    volumes:
+      # Mount MCP configuration
+      - ./config/mcp_server.yml:/app/config/mcp_server.yml:ro
+      - ./docs/MCP_INTEGRATION.md:/app/docs/MCP_INTEGRATION.md:ro
+
+  # Update worker to include MCP configuration  
+  worker:
+    environment:
+      # Add MCP-specific environment variables
+      - MCP_SERVER_ENABLED=true
+      - MCP_SERVER_HOST=mcp-server
+      - MCP_SERVER_PORT=3231
+      - MCP_SERVER_ENDPOINT=/mcp
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      mcp-server:
+        condition: service_healthy
+    volumes:
+      # Mount MCP configuration
+      - ./config/mcp_server.yml:/app/config/mcp_server.yml:ro
+
+volumes:
+  mcp-logs: {}

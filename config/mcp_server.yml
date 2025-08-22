@@ -1,0 +1,157 @@
+# ClickUp MCP Server Configuration for Project Archangel
+# Enables AI-enhanced task management through Model Context Protocol
+
+server:
+  # Server connection settings
+  host: "127.0.0.1"
+  port: 3231
+  endpoint: "/mcp"
+  transport: "http"  # Options: http, sse
+  
+  # Health check and monitoring
+  health_check_interval: 30  # seconds
+  connection_timeout: 10     # seconds
+  request_timeout: 30        # seconds
+  max_retries: 3
+
+authentication:
+  # ClickUp API credentials (use environment variables)
+  clickup_api_key: "${CLICKUP_API_KEY}"
+  team_id: "${CLICKUP_TEAM_ID}"
+  
+  # Optional: Override default workspace/space/list
+  workspace_id: "${CLICKUP_WORKSPACE_ID:-}"
+  space_id: "${CLICKUP_SPACE_ID:-}"
+  list_id: "${CLICKUP_LIST_ID:-}"
+
+features:
+  # Tool filtering for performance and security
+  enabled_tools:
+    # Task management (core features)
+    - "create_task"
+    - "get_task" 
+    - "update_task"
+    - "delete_task"
+    - "list_tasks"
+    - "search_tasks"
+    
+    # Advanced task operations
+    - "get_task_comments"
+    - "add_task_comment"
+    - "get_task_time_tracked"
+    - "track_time"
+    
+    # Workspace and list management
+    - "get_lists"
+    - "get_spaces"
+    - "get_workspaces"
+    - "get_teams"
+    
+    # Member and user management
+    - "get_workspace_members"
+    - "get_task_members"
+    - "resolve_user_by_email"
+    - "resolve_user_by_username"
+    
+    # Document management (if needed)
+    - "get_docs"
+    - "create_doc"
+    - "update_doc"
+  
+  # Disabled tools (comment out to enable)
+  disabled_tools:
+    - "delete_doc"  # Potentially destructive
+    - "create_webhook"  # Managed by main system
+    - "delete_webhook"  # Managed by main system
+
+performance:
+  # Rate limiting and performance tuning
+  max_concurrent_requests: 5
+  request_batch_size: 10
+  cache_ttl: 300  # seconds (5 minutes)
+  
+  # Tool-specific settings
+  tool_timeouts:
+    default: 30
+    list_tasks: 60
+    search_tasks: 60
+    get_docs: 45
+
+security:
+  # Security and validation settings
+  validate_responses: true
+  sanitize_inputs: true
+  log_level: "INFO"  # Options: TRACE, DEBUG, INFO, WARN, ERROR
+  
+  # Request validation
+  max_request_size: 1048576  # 1MB
+  max_response_size: 10485760  # 10MB
+
+logging:
+  # Logging configuration
+  enable_request_logging: true
+  enable_response_logging: false  # Set to true for debugging
+  log_sensitive_data: false
+  
+  # Log rotation
+  max_log_size: "100MB"
+  backup_count: 5
+
+integration:
+  # Integration with Project Archangel
+  bridge_enabled: true
+  fallback_to_adapter: true  # Use existing ClickUp adapter as fallback
+  
+  # Coordination settings
+  sync_with_outbox: true
+  use_idempotency_keys: true
+  preserve_audit_trail: true
+  
+  # Data mapping
+  priority_mapping:
+    # Project Archangel (1-5) -> ClickUp (1-4)
+    1: 4  # Low -> Low
+    2: 3  # Normal -> Normal  
+    3: 3  # Medium -> Normal
+    4: 2  # High -> High
+    5: 1  # Urgent -> Urgent
+  
+  status_mapping:
+    # Map ClickUp statuses to internal statuses
+    open: "pending"
+    "in progress": "in_progress"
+    review: "review"
+    done: "completed"
+    closed: "completed"
+
+monitoring:
+  # Health and performance monitoring
+  metrics_enabled: true
+  tracing_enabled: true
+  
+  # Alerting thresholds
+  error_rate_threshold: 0.05  # 5%
+  response_time_threshold: 5000  # 5 seconds
+  availability_threshold: 0.99  # 99%
+  
+  # Prometheus metrics
+  metrics:
+    - name: "mcp_requests_total"
+      type: "counter"
+      labels: ["tool", "status"]
+    - name: "mcp_request_duration_seconds"
+      type: "histogram"
+      labels: ["tool"]
+    - name: "mcp_server_available"
+      type: "gauge"
+      labels: ["endpoint"]
+
+development:
+  # Development and testing settings
+  debug_mode: false
+  mock_responses: false
+  test_data_path: "tests/fixtures/mcp_responses"
+  
+  # Local development overrides
+  local_server_port: 3231
+  local_server_host: "localhost"
