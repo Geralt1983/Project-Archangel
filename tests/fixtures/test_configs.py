@@ -367,6 +367,10 @@ def get_test_config(config_type: str = "minimal") -> str:
     
     Returns:
         Path to temporary config file
+        
+    Note:
+        This function creates a temporary file that must be cleaned up manually.
+        Consider using ConfigFileManager context manager for automatic cleanup.
     """
     config_map = {
         "minimal": MCPConfigFixtures.minimal_config,
@@ -394,6 +398,10 @@ def create_custom_config(**overrides) -> str:
     
     Returns:
         Path to temporary config file
+        
+    Note:
+        This function creates a temporary file that must be cleaned up manually.
+        Consider using ConfigFileManager context manager for automatic cleanup.
     """
     base_config = MCPConfigFixtures.minimal_config()
     
@@ -411,10 +419,63 @@ def create_custom_config(**overrides) -> str:
     return manager.create_config_file(base_config, "custom")
 
 
+class ManagedTestConfig:
+    """Context manager for test configurations with automatic cleanup"""
+    
+    def __init__(self, config_type: str = "minimal", **overrides):
+        self.config_type = config_type
+        self.overrides = overrides
+        self.manager = None
+        self.config_path = None
+    
+    def __enter__(self) -> str:
+        self.manager = ConfigFileManager()
+        
+        if self.overrides:
+            # Create custom config with overrides
+            base_config = MCPConfigFixtures.minimal_config()
+            
+            def deep_merge(base: Dict, override: Dict):
+                for key, value in override.items():
+                    if key in base and isinstance(base[key], dict) and isinstance(value, dict):
+                        deep_merge(base[key], value)
+                    else:
+                        base[key] = value
+            
+            deep_merge(base_config, self.overrides)
+            config_data = base_config
+            filename = "custom"
+        else:
+            # Use predefined config
+            config_map = {
+                "minimal": MCPConfigFixtures.minimal_config,
+                "full": MCPConfigFixtures.full_featured_config,
+                "performance": MCPConfigFixtures.high_performance_config,
+                "security": MCPConfigFixtures.security_focused_config,
+                "development": MCPConfigFixtures.development_config,
+                "fallback": MCPConfigFixtures.fallback_only_config,
+                "error": MCPConfigFixtures.error_prone_config
+            }
+            
+            if self.config_type not in config_map:
+                raise ValueError(f"Unknown config type: {self.config_type}")
+            
+            config_data = config_map[self.config_type]()
+            filename = self.config_type
+        
+        self.config_path = self.manager.create_config_file(config_data, filename)
+        return self.config_path
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self.manager:
+            self.manager.cleanup()
+
+
 # Export commonly used functions
 __all__ = [
     'MCPConfigFixtures',
     'ConfigFileManager',
+    'ManagedTestConfig',
     'get_test_config',
     'create_custom_config'
 ]

@@ -1,1 +1,1 @@
-# Integration layer for external services and protocols
+"""Integration layer for external services and protocols."""

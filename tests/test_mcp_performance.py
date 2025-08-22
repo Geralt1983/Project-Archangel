@@ -134,7 +134,7 @@ class TestMCPBridgePerformance:
     
     @pytest.mark.asyncio
     async def test_memory_usage_under_load(self, performance_config, mock_adapter_fast):
-        """Test memory usage during sustained load"""
+        """Test memory usage during sustained load with detailed profiling"""
         bridge = MCPBridge(config_path=performance_config, clickup_adapter=mock_adapter_fast)
         bridge._server_available = True
         bridge.client = AsyncMock()
@@ -145,15 +145,31 @@ class TestMCPBridgePerformance:
         mock_response.json.return_value = {"result": {"content": {"id": "memory-test"}}}
         bridge.client.post.return_value = mock_response
         
-        # Measure initial memory
+        # Enhanced memory profiling
         process = psutil.Process()
-        initial_memory = process.memory_info().rss / 1024 / 1024  # MB
+        memory_samples = []
+        gc_collections = []
         
-        # Perform sustained operations
+        def capture_memory_profile():
+            mem_info = process.memory_info()
+            return {
+                'rss_mb': mem_info.rss / 1024 / 1024,
+                'vms_mb': mem_info.vms / 1024 / 1024,
+                'percent': process.memory_percent(),
+                'open_files': len(process.open_files())
+            }
+        
+        # Baseline memory measurement
+        baseline = capture_memory_profile()
+        memory_samples.append(('baseline', baseline))
+        
+        # Perform sustained operations with detailed tracking
         iterations = 1000
         batch_size = 50
         
         for batch in range(iterations // batch_size):
+            batch_start = capture_memory_profile()
+            
             tasks = []
             for i in range(batch_size):
                 task_data = {"title": f"Memory Test {batch}_{i}"}
@@ -161,17 +177,59 @@ class TestMCPBridgePerformance:
             
             await asyncio.gather(*tasks)
             
-            # Force garbage collection occasionally
+            batch_end = capture_memory_profile()
+            memory_samples.append((f'batch_{batch}', batch_end))
+            
+            # Force garbage collection with tracking
             if batch % 5 == 0:
                 import gc
-                gc.collect()
+                pre_gc_count = sum(gc.get_count())
+                collected = gc.collect()
+                post_gc_count = sum(gc.get_count())
+                gc_collections.append({
+                    'batch': batch,
+                    'collected': collected,
+                    'pre_count': pre_gc_count,
+                    'post_count': post_gc_count
+                })
+                
+                # Memory after GC
+                post_gc_memory = capture_memory_profile()
+                memory_samples.append((f'post_gc_{batch}', post_gc_memory))
         
-        # Measure final memory
-        final_memory = process.memory_info().rss / 1024 / 1024  # MB
-        memory_increase = final_memory - initial_memory
+        # Final memory measurement
+        final = capture_memory_profile()
+        memory_samples.append(('final', final))
         
-        # Memory increase should be reasonable (less than 50MB for this test)
-        assert memory_increase < 50, f"Memory usage increased too much: {memory_increase:.2f}MB"
+        # Analyze memory growth patterns
+        rss_values = [sample[1]['rss_mb'] for sample in memory_samples]
+        peak_memory = max(rss_values)
+        memory_increase = final['rss_mb'] - baseline['rss_mb']
+        peak_increase = peak_memory - baseline['rss_mb']
+        
+        # Calculate memory growth trend
+        growth_rate = memory_increase / len(memory_samples) if len(memory_samples) > 1 else 0
+        
+        # Enhanced assertions with detailed reporting
+        assert memory_increase < 50, (
+            f"Memory usage increased too much: {memory_increase:.2f}MB\n"
+            f"Peak increase: {peak_increase:.2f}MB\n"
+            f"Growth rate: {growth_rate:.3f}MB per sample\n"
+            f"GC collections: {len(gc_collections)}\n"
+            f"Final open files: {final['open_files']}"
+        )
+        
+        # Additional checks for memory stability
+        assert peak_increase < 75, f"Peak memory usage too high: {peak_increase:.2f}MB"
+        assert final['open_files'] <= baseline['open_files'] + 2, "Possible file handle leak"
+        
+        # Log memory profile for debugging
+        if memory_increase > 25:  # Warning threshold
+            print(f"\nMemory Profile Warning:")
+            print(f"  Baseline: {baseline['rss_mb']:.2f}MB")
+            print(f"  Peak: {peak_memory:.2f}MB")
+            print(f"  Final: {final['rss_mb']:.2f}MB")
+            print(f"  GC Collections: {len(gc_collections)}")
     
     @pytest.mark.asyncio
     async def test_connection_pool_efficiency(self, performance_config):
@@ -357,27 +415,29 @@ class TestMCPIntegrationReliability:
     """Test MCP integration reliability and fault tolerance"""
     
     @pytest.fixture
-    def unreliable_bridge(self, tmp_path):
-        """Create bridge with simulated unreliable server"""
+    def unreliable_bridge(self):
+        """Create bridge with simulated unreliable server using context-managed config"""
+        from tests.fixtures.test_configs import ConfigFileManager
+        
         config_data = {
             "server": {"host": "localhost", "port": 3231, "endpoint": "/mcp", "max_retries": 3},
             "features": {"enabled_tools": ["create_task"], "disabled_tools": []},
             "integration": {"bridge_enabled": True, "fallback_to_adapter": True}
         }
         
-        config_path = tmp_path / "unreliable_config.yml"
-        with open(config_path, 'w') as f:
-            import yaml
-            yaml.safe_dump(config_data, f)
-        
-        adapter = Mock(spec=ClickUpAdapter)
-        adapter.create_task.return_value = {"id": "fallback-success", "title": "Fallback"}
-        
-        bridge = MCPBridge(config_path=str(config_path), clickup_adapter=adapter)
-        bridge._server_available = True
-        bridge.client = AsyncMock()
-        
-        return bridge
+        # Use context manager for automatic cleanup
+        with ConfigFileManager() as config_manager:
+            config_path = config_manager.create_config_file(config_data, "unreliable")
+            
+            adapter = Mock(spec=ClickUpAdapter)
+            adapter.create_task.return_value = {"id": "fallback-success", "title": "Fallback"}
+            
+            bridge = MCPBridge(config_path=config_path, clickup_adapter=adapter)
+            bridge._server_available = True
+            bridge.client = AsyncMock()
+            
+            yield bridge
+        # Config files automatically cleaned up when context exits
     
     @pytest.mark.asyncio
     async def test_intermittent_failures_recovery(self, unreliable_bridge):

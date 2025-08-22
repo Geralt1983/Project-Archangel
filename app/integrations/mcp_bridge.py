@@ -35,6 +35,7 @@ class MCPBridge:
         self.client = None
         self._server_available = False
         self._last_health_check = None
+        self._health_check_lock = asyncio.Lock()
         
         # Initialize retry configuration
         self.retry_config = RetryConfig(
@@ -128,10 +129,11 @@ class MCPBridge:
             return False
         
         if not self._server_available:
-            # Try health check if it's been a while
-            if (not self._last_health_check or 
-                (datetime.now(timezone.utc) - self._last_health_check).seconds > 60):
-                await self._health_check()
+            # Try health check if it's been a while (with lock to prevent race conditions)
+            async with self._health_check_lock:
+                if (not self._last_health_check or 
+                    (datetime.now(timezone.utc) - self._last_health_check).seconds > 60):
+                    await self._health_check()
         
         if not self._server_available:
             return False
@@ -166,6 +168,12 @@ class MCPBridge:
             
             if response.status_code >= 500:
                 raise ServerError(response.status_code, response.text)
+            
+            if 400 <= response.status_code < 500:
+                self.logger.warning("MCP client error", 
+                                  tool=tool, 
+                                  status_code=response.status_code,
+                                  response_text=response.text[:200])
             
             response.raise_for_status()
             result = response.json()
