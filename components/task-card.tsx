@@ -135,6 +135,7 @@ export function TaskCard({ task, onClick, onBump, onBurn, onSendToReady, compact
 
   const handleBurnClick = (e: React.MouseEvent) => {
     e.stopPropagation()
+    console.log("[v0] TaskCard handleBurnClick called for task:", task.id)
     if (isBurning) return
 
     setIsBurning(true)
@@ -153,25 +154,24 @@ export function TaskCard({ task, onClick, onBump, onBurn, onSendToReady, compact
 
     // Call onBurn after 1400ms total
     setTimeout(() => {
-      console.log("onBurn", task.id)
+      console.log("[v0] Calling onBurn for task:", task.id)
       onBurn?.(task.id)
     }, 1400)
   }
 
   const handleBumpClick = (e: React.MouseEvent) => {
     e.stopPropagation()
-
-    if (boingSound) {
-      boingSound.currentTime = 0
-      boingSound.play().catch(() => {})
-    }
+    console.log("[v0] TaskCard handleBumpClick called for task:", task.id)
 
     if (task.isStale) {
       setIsInteracted(true)
     }
 
     if (cardRef.current && onBump) {
+      console.log("[v0] Calling onBump with task ID and element")
       onBump(task.id, cardRef.current)
+    } else {
+      console.log("[v0] Missing cardRef or onBump handler")
     }
   }
 

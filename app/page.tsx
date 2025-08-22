@@ -224,6 +224,14 @@ export default function BoardPage() {
       return
     }
 
+    try {
+      const audio = new Audio("/sounds/boing.mp3")
+      audio.currentTime = 0
+      await audio.play()
+    } catch (e) {
+      console.log("[v0] Could not play boing sound:", e)
+    }
+
     // Check WIP cap
     if (!canEnterDoing(task)) {
       console.log("[v0] WIP cap exceeded, denying bump")
