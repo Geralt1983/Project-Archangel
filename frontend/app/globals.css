@@ -1,0 +1,649 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import "tailwindcss";
+
+@theme inline {
+  /* Brand colors */
+  --color-brand-50: #eef6ff;
+  --color-brand-100: #d9ebff;
+  --color-brand-200: #b9d6ff;
+  --color-brand-300: #87c0ff;
+  --color-brand-400: #5aa3ff;
+  --color-brand-500: #2d86ff;
+  --color-brand-600: #1e6be6;
+  --color-brand-700: #1a5acc;
+  --color-brand-800: #1c4ba6;
+  --color-brand-900: #1e4082;
+
+  /* Glass surface colors */
+  --color-surface-glass-1: rgba(255, 255, 255, 0.03);
+  --color-surface-glass-2: rgba(255, 255, 255, 0.06);
+  --color-surface-glass-3: rgba(255, 255, 255, 0.09);
+  --color-surface-glass-4: rgba(255, 255, 255, 0.12);
+  --color-surface-stroke-subtle: rgba(255, 255, 255, 0.08);
+  --color-surface-stroke: rgba(255, 255, 255, 0.18);
+  --color-surface-stroke-strong: rgba(255, 255, 255, 0.25);
+
+  /* Light bloom colors for interactive states */
+  --color-bloom-blue: rgba(45, 134, 255, 0.4);
+  --color-bloom-white: rgba(255, 255, 255, 0.3);
+  --color-bloom-warm: rgba(255, 165, 0, 0.3);
+
+  /* Extended border radius */
+  --radius-3xl: 1.75rem;
+  --radius-4xl: 2rem;
+
+  /* Glass shadows */
+  --shadow-glass-1: 0 4px 12px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  --shadow-glass-2: 0 8px 20px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  --shadow-glass-3: 0 12px 30px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  --shadow-glass-4: 0 20px 40px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  --shadow-soft: 0 8px 20px rgba(0, 0, 0, 0.2);
+  --shadow-bloom: 0 0 20px var(--color-bloom-blue), 0 0 40px var(--color-bloom-blue);
+
+  /* Extended backdrop blur */
+  --blur-xs: 2px;
+  --blur-sm: 4px;
+  --blur-md: 8px;
+  --blur-lg: 12px;
+  --blur-xl: 16px;
+
+  /* Fade in animation */
+  --animate-fadein: fadein 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-slideup: slideup 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-breathe: breathe 3s ease-in-out infinite;
+  --animate-float: float 6s ease-in-out infinite;
+  --animate-glow: glow 2s ease-in-out infinite alternate;
+
+  /* Burn Animation Styles */
+  --animate-rise: rise 0.6s ease-out;
+  --animate-charIn: charIn 0.4s ease-in;
+  --animate-disintegrate: disintegrate 0.9s ease-out forwards;
+  --animate-shake: shake 0.5s ease-in-out;
+  --animate-bumpShake: bumpShake 0.4s ease;
+  --animate-bumpElevate: bumpElevate 140ms ease-out forwards;
+  --animate-bumpWiggle: bumpWiggle 240ms ease-in-out;
+  --animate-bumpFading: bumpFading 150ms ease;
+  --animate-bumpDeny: bumpDenyShake 400ms ease;
+  --animate-triagePop: triagePop 180ms ease;
+}
+
+/* Added all keyframes to components layer for better organization */
+@layer components {
+  @keyframes fadein {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes rise {
+    0% {
+      height: 0;
+      opacity: 0.8;
+    }
+    50% {
+      opacity: 1;
+    }
+    100% {
+      height: 100%;
+      opacity: 0.9;
+    }
+  }
+
+  @keyframes charIn {
+    0% {
+      opacity: 0;
+    }
+    100% {
+      opacity: 1;
+    }
+  }
+
+  @keyframes disintegrate {
+    0% {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+    70% {
+      opacity: 0.3;
+      transform: translateY(-2px) scale(0.98);
+    }
+    100% {
+      opacity: 0;
+      transform: translateY(-4px) scale(0.95);
+    }
+  }
+
+  @keyframes shake {
+    0%,
+    100% {
+      transform: translateX(0);
+    }
+    10%,
+    30%,
+    50%,
+    70%,
+    90% {
+      transform: translateX(-1px);
+    }
+    20%,
+    40%,
+    60%,
+    80% {
+      transform: translateX(1px);
+    }
+  }
+
+  @keyframes bumpShake {
+    0% {
+      transform: translateX(0);
+    }
+    20% {
+      transform: translateX(-3px);
+    }
+    40% {
+      transform: translateX(3px);
+    }
+    60% {
+      transform: translateX(-2px);
+    }
+    80% {
+      transform: translateX(2px);
+    }
+    100% {
+      transform: translateX(0);
+    }
+  }
+
+  @keyframes bumpDenyShake {
+    0%,
+    100% {
+      transform: translateX(0);
+    }
+    25% {
+      transform: translateX(-5px);
+    }
+    50% {
+      transform: translateX(5px);
+    }
+    75% {
+      transform: translateX(-4px);
+    }
+  }
+
+  @keyframes bumpElevate {
+    0% {
+      transform: translateZ(0) scale(1) translateY(0);
+      filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.2));
+    }
+    100% {
+      transform: translateZ(0) scale(1.08) translateY(-8px);
+      filter: drop-shadow(0 16px 32px rgba(0, 0, 0, 0.4));
+    }
+  }
+
+  @keyframes bumpWiggle {
+    0%,
+    100% {
+      transform: translateZ(0) scale(1.08) translateY(-8px) rotate(0deg);
+    }
+    25% {
+      transform: translateZ(0) scale(1.08) translateY(-8px) rotate(-2deg);
+    }
+    75% {
+      transform: translateZ(0) scale(1.08) translateY(-8px) rotate(2deg);
+    }
+  }
+
+  @keyframes bumpFlyUp {
+    0% {
+      transform: translateY(0) scale(1);
+      opacity: 1;
+    }
+    30% {
+      transform: translateY(-30px) scale(1.05);
+      opacity: 0.95;
+    }
+    70% {
+      transform: translateY(-20px) scale(1.02);
+      opacity: 0.9;
+    }
+    100% {
+      transform: translateY(-15px) scale(1);
+      opacity: 0.85;
+    }
+  }
+
+  @keyframes triagePop {
+    0% {
+      transform: scale(1);
+    }
+    40% {
+      transform: scale(1.04);
+    }
+    100% {
+      transform: scale(1);
+    }
+  }
+
+  @keyframes slideup {
+    from {
+      opacity: 0;
+      transform: translateY(20px) scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  @keyframes breathe {
+    0%,
+    100% {
+      transform: scale(1);
+      filter: brightness(1);
+    }
+    50% {
+      transform: scale(1.02);
+      filter: brightness(1.1);
+    }
+  }
+
+  @keyframes float {
+    0%,
+    100% {
+      transform: translateY(0px);
+    }
+    50% {
+      transform: translateY(-4px);
+    }
+  }
+
+  @keyframes glow {
+    0% {
+      box-shadow: 0 0 5px var(--color-bloom-blue);
+    }
+    100% {
+      box-shadow: 0 0 20px var(--color-bloom-blue), 0 0 30px var(--color-bloom-blue);
+    }
+  }
+
+  @keyframes tilt {
+    0% {
+      transform: perspective(1000px) rotateX(0deg) rotateY(0deg);
+    }
+    100% {
+      transform: perspective(1000px) rotateX(2deg) rotateY(3deg);
+    }
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 0 0% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 3.9%;
+    --primary: 0 0% 9%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 0 0% 96.1%;
+    --secondary-foreground: 0 0% 9%;
+    --muted: 0 0% 96.1%;
+    --muted-foreground: 0 0% 45.1%;
+    --accent: 0 0% 96.1%;
+    --accent-foreground: 0 0% 9%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 89.8%;
+    --input: 0 0% 89.8%;
+    --ring: 0 0% 3.9%;
+    --chart-1: 12 76% 61%;
+    --chart-2: 173 58% 39%;
+    --chart-3: 197 37% 24%;
+    --chart-4: 43 74% 66%;
+    --chart-5: 27 87% 67%;
+    --radius: 0.5rem;
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .dark {
+    --background: 0 0% 3.9%;
+    --foreground: 0 0% 98%;
+    --card: 0 0% 3.9%;
+    --card-foreground: 0 0% 98%;
+    --popover: 0 0% 3.9%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 0 0% 98%;
+    --primary-foreground: 0 0% 9%;
+    --secondary: 0 0% 14.9%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 0 0% 14.9%;
+    --muted-foreground: 0 0% 63.9%;
+    --accent: 0 0% 14.9%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 14.9%;
+    --input: 0 0% 14.9%;
+    --ring: 0 0% 83.1%;
+    --chart-1: 220 70% 50%;
+    --chart-2: 160 60% 45%;
+    --chart-3: 30 80% 55%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 340 75% 55%;
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    /* Layered radial gradient background for depth */
+    background: radial-gradient(circle at 20% 80%, rgba(45, 134, 255, 0.18) 0%, transparent 50%),
+      radial-gradient(circle at 80% 20%, rgba(90, 163, 255, 0.12) 0%, transparent 50%),
+      radial-gradient(circle at 40% 40%, rgba(185, 214, 255, 0.08) 0%, transparent 50%),
+      radial-gradient(circle at 60% 70%, rgba(255, 255, 255, 0.02) 0%, transparent 40%),
+      linear-gradient(135deg, #0a0a1a 0%, #1a1a2e 30%, #16213e 70%, #0f1419 100%);
+    min-height: 100vh;
+    position: relative;
+  }
+
+  /* Subtle noise texture overlay */
+  .bg-grain::before {
+    content: "";
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0.03;
+    z-index: 1;
+    pointer-events: none;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+  }
+
+  /* Burn Animation Styles */
+  .burn-overlay {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 0;
+    background: linear-gradient(
+      to top,
+      rgba(255, 107, 53, 0.8) 0%,
+      rgba(247, 147, 30, 0.6) 30%,
+      rgba(255, 165, 0, 0.4) 60%,
+      transparent 100%
+    );
+    border-radius: inherit;
+    transition: height 0.3s ease-out;
+    z-index: 5;
+  }
+
+  .char {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, rgba(20, 20, 20, 0) 0%, rgba(40, 40, 40, 0.3) 50%, rgba(10, 10, 10, 0.7) 100%);
+    border-radius: inherit;
+    opacity: 0;
+    transition: opacity 0.4s ease-in;
+    z-index: 6;
+  }
+
+  .card.burning {
+    animation: shake 0.5s ease-in-out;
+  }
+
+  .card.burning .burn-overlay {
+    height: 100%;
+    animation: rise 0.6s ease-out;
+  }
+
+  .card.ash {
+    animation: disintegrate 0.9s ease-out forwards;
+  }
+
+  .card.ash .char {
+    opacity: 1;
+    animation: charIn 0.4s ease-in;
+  }
+
+  .card.bumped {
+    animation: bumpShake 0.4s ease;
+  }
+
+  .card.bumpElevate {
+    animation: var(--animate-bumpElevate);
+    z-index: 100;
+  }
+
+  .card.bumpWiggle {
+    animation: var(--animate-bumpWiggle);
+    z-index: 100;
+  }
+
+  .card.bumpFading {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 150ms ease;
+  }
+
+  .card.bumpDeny {
+    animation: bumpDenyShake 400ms ease;
+    box-shadow: 0 0 0 2px rgba(255, 96, 96, 0.35) inset;
+  }
+
+  .card.triagePop {
+    animation: triagePop 180ms ease;
+  }
+
+  .bumpFlyClone {
+    position: fixed;
+    z-index: 9999;
+    will-change: transform, opacity;
+    transition: transform 520ms cubic-bezier(0.22, 0.61, 0.36, 1), opacity 520ms ease;
+    border-radius: 12px;
+    overflow: hidden;
+    pointer-events: none;
+  }
+
+  .ember {
+    position: fixed;
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  /* Compact card for Done column */
+  .card-normal {
+    max-height: 1000px;
+  }
+  .card-compact {
+    max-height: 52px; /* title-only height */
+    padding-top: 10px;
+    padding-bottom: 10px;
+    transition: max-height 180ms ease, padding 180ms ease;
+  }
+  .card-compact h3 {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Inbox visuals */
+  .inbox-row {
+    @apply rounded-md border border-white/10 bg-white/5 hover:bg-white/10 transition p-2;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: none;
+  }
+  .inbox-row.open {
+    @apply bg-white/10;
+  }
+  .inbox-title {
+    @apply text-sm font-medium text-white/90;
+  }
+  .inbox-chips {
+    @apply text-xs text-white/70 flex gap-2 items-center;
+  }
+
+  /* Inbox capture bar visuals */
+  .inbox-bar {
+    @apply rounded-xl border border-white/10 bg-white/5 backdrop-blur px-3 py-2;
+  }
+  .inbox-textarea {
+    @apply w-full bg-transparent placeholder-white/40 text-white/90 outline-none resize-none;
+  }
+
+  /* Cross-container drag cues */
+  .drop-target {
+    outline: 2px dashed rgba(122, 162, 255, 0.45);
+    outline-offset: 2px;
+  }
+  .drop-target-accept {
+    background: linear-gradient(0deg, rgba(122, 162, 255, 0.08), transparent 60%);
+  }
+
+  /* Drag affordances */
+  .cursor-default {
+    cursor: default;
+  }
+  .cursor-grab {
+    cursor: grab;
+  }
+  .active\:cursor-grabbing:active {
+    cursor: grabbing;
+  }
+
+  /* Added CSS to disable overlay pointer events during drag */
+  /* Let pointer events pass through Radix overlay while dragging */
+  .dnd-dragging [data-radix-dialog-overlay] {
+    pointer-events: none !important;
+  }
+
+  /* Prevent text selection and improve drag experience */
+  .dnd-dragging * {
+    user-select: none !important;
+    -webkit-user-select: none !important;
+  }
+
+  /* Ensure draggable elements have proper touch behavior */
+  [data-no-drag] {
+    touch-action: auto;
+  }
+
+  /* Enhanced glass component classes */
+  .glass-1 {
+    background: var(--color-surface-glass-1);
+    border: 1px solid var(--color-surface-stroke-subtle);
+    backdrop-filter: blur(var(--blur-sm));
+    box-shadow: var(--shadow-glass-1);
+  }
+
+  .glass-2 {
+    background: var(--color-surface-glass-2);
+    border: 1px solid var(--color-surface-stroke);
+    backdrop-filter: blur(var(--blur-md));
+    box-shadow: var(--shadow-glass-2);
+  }
+
+  .glass-3 {
+    background: var(--color-surface-glass-3);
+    border: 1px solid var(--color-surface-stroke);
+    backdrop-filter: blur(var(--blur-lg));
+    box-shadow: var(--shadow-glass-3);
+  }
+
+  .glass-4 {
+    background: var(--color-surface-glass-4);
+    border: 1px solid var(--color-surface-stroke-strong);
+    backdrop-filter: blur(var(--blur-xl));
+    box-shadow: var(--shadow-glass-4);
+  }
+
+  /* Interactive glass states with light blooms */
+  .glass-interactive {
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .glass-interactive:hover {
+    background: var(--color-surface-glass-3);
+    border-color: var(--color-surface-stroke-strong);
+    box-shadow: var(--shadow-glass-3), 0 0 0 1px var(--color-bloom-blue);
+    transform: translateY(-1px);
+  }
+
+  .glass-interactive:active {
+    transform: translateY(0) scale(0.98);
+    box-shadow: var(--shadow-glass-2);
+  }
+
+  /* 3D parallax effect for cards */
+  .card-3d {
+    transform-style: preserve-3d;
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .card-3d:hover {
+    transform: perspective(1000px) rotateX(2deg) rotateY(3deg) translateY(-2px);
+  }
+
+  /* Enhanced breathing animation for idle elements */
+  .breathe {
+    animation: breathe 4s ease-in-out infinite;
+  }
+
+  .float {
+    animation: float 6s ease-in-out infinite;
+  }
+
+  /* Light bloom effects */
+  .bloom-blue {
+    box-shadow: 0 0 20px var(--color-bloom-blue);
+  }
+
+  .bloom-white {
+    box-shadow: 0 0 15px var(--color-bloom-white);
+  }
+
+  .bloom-warm {
+    box-shadow: 0 0 25px var(--color-bloom-warm);
+  }
+}
