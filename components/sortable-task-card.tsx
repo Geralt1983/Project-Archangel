@@ -1,7 +1,5 @@
 "use client"
 
-import type React from "react"
-
 import { useSortable } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
 import { TaskCard } from "./task-card"
@@ -37,20 +35,35 @@ export function SortableTaskCard({
     transition,
   }
 
-  const cardListeners = {
-    ...listeners,
-    onPointerDown: (e: React.PointerEvent) => {
-      // Don't start drag if clicking on buttons or interactive elements
+  const filteredListeners = Object.keys(listeners || {}).reduce((acc, key) => {
+    const originalHandler = (listeners as any)[key]
+    acc[key] = (e: any) => {
+      // Check if the event target or any parent is a button or has data-no-drag
       const target = e.target as HTMLElement
-      if (target.closest("button") || target.closest("[data-no-drag]")) {
+      if (
+        target.closest("button") ||
+        target.closest("[data-no-drag]") ||
+        target.tagName === "BUTTON" ||
+        target.hasAttribute("data-no-drag")
+      ) {
+        console.log("[v0] Preventing drag on button/no-drag element")
+        e.preventDefault()
+        e.stopPropagation()
         return
       }
-      listeners?.onPointerDown?.(e as any)
-    },
-  }
+      originalHandler?.(e)
+    }
+    return acc
+  }, {} as any)
 
   return (
-    <div ref={setNodeRef} style={style} className={isDragging ? "opacity-50" : ""} {...attributes} {...cardListeners}>
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={isDragging ? "opacity-50" : ""}
+      {...attributes}
+      {...filteredListeners}
+    >
       <TaskCard
         task={task}
         onClick={onClick}
