@@ -1,5 +1,7 @@
 "use client"
 
+import type React from "react"
+
 import { useSortable } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
 import { TaskCard } from "./task-card"
@@ -35,8 +37,20 @@ export function SortableTaskCard({
     transition,
   }
 
+  const cardListeners = {
+    ...listeners,
+    onPointerDown: (e: React.PointerEvent) => {
+      // Don't start drag if clicking on buttons or interactive elements
+      const target = e.target as HTMLElement
+      if (target.closest("button") || target.closest("[data-no-drag]")) {
+        return
+      }
+      listeners?.onPointerDown?.(e as any)
+    },
+  }
+
   return (
-    <div ref={setNodeRef} style={style} className={isDragging ? "opacity-50" : ""} {...attributes} {...listeners}>
+    <div ref={setNodeRef} style={style} className={isDragging ? "opacity-50" : ""} {...attributes} {...cardListeners}>
       <TaskCard
         task={task}
         onClick={onClick}
