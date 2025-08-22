@@ -152,8 +152,11 @@ class AgentRequirementValidator:
                 try:
                     score = validator_method(response)
                     scores[requirement.name] = score
-                except Exception as e:
+                except (AttributeError, ValueError, TypeError) as e:
                     self.logger.warning(f"Validation failed for {requirement.name}: {e}")
+                    scores[requirement.name] = 0.0
+                except Exception as e:
+                    self.logger.error(f"Unexpected validation error for {requirement.name}: {e}", exc_info=True)
                     scores[requirement.name] = 0.0
             else:
                 self.logger.warning(f"Unknown validator: {requirement.validator}")

@@ -7,7 +7,6 @@ from typing import Dict, List, Any, Optional, Callable
 import uuid
 from datetime import datetime, timezone
 import structlog
-import asyncio
 
 from .protocol_engine import (
     ConsensusEngine, ConsensusConfig, ProtocolType, 
@@ -65,6 +64,16 @@ class ConsensusDiscussionService:
             quality_threshold: Minimum quality score required
             custom_roles: Optional custom model->role mapping
         """
+        
+        # Input validation
+        if not topic or not topic.strip():
+            raise ValueError("Topic cannot be empty")
+        if max_rounds < 1 or max_rounds > 10:
+            raise ValueError("Max rounds must be between 1 and 10")
+        if not (0.0 <= consensus_threshold <= 1.0):
+            raise ValueError("Consensus threshold must be between 0.0 and 1.0")
+        if not (0.0 <= quality_threshold <= 1.0):
+            raise ValueError("Quality threshold must be between 0.0 and 1.0")
         
         session_id = f"session_{uuid.uuid4().hex[:12]}"
         
@@ -147,9 +156,12 @@ class ConsensusDiscussionService:
                                    word_count=response.word_count,
                                    quality_score=response.quality_score)
                     
-                except Exception as e:
+                except (ValueError, TypeError, RuntimeError) as e:
                     self.logger.error("Failed to generate response", 
                                     model=model, error=str(e))
+                except Exception as e:
+                    self.logger.error("Unexpected error generating response", 
+                                    model=model, error=str(e), exc_info=True)
             
             return responses
         

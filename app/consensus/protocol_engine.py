@@ -3,7 +3,7 @@ Consensus Discussion Protocol Engine
 Implements proper consensus logic with quality gates and validation
 """
 
-from typing import Dict, List, Any, Optional, Tuple
+from typing import Dict, List, Any, Optional, Tuple, Callable, Awaitable
 from enum import Enum
 from dataclasses import dataclass, asdict
 from datetime import datetime, timezone
@@ -11,6 +11,27 @@ import structlog
 from abc import ABC, abstractmethod
 
 logger = structlog.get_logger(__name__)
+
+# Quality scoring constants
+QUALITY_WEIGHTS = {
+    'response_consistency': 0.2,
+    'topic_coherence': 0.2,
+    'decision_clarity': 0.25,
+    'semantic_convergence': 0.15,
+    'actionable_content_score': 0.15,
+    'evidence_based_score': 0.05
+}
+
+# Response length thresholds
+MIN_RESPONSE_LENGTH = 50
+SHORT_RESPONSE_LENGTH = 100
+MEDIUM_RESPONSE_LENGTH = 200
+
+# Scoring multipliers
+CONSISTENCY_BOOST = 3
+CLARITY_INDICATORS_THRESHOLD = 5
+ACTIONABLE_KEYWORDS_THRESHOLD = 3
+EVIDENCE_INDICATORS_THRESHOLD = 2
 
 
 class ProtocolType(Enum):
@@ -40,16 +61,7 @@ class QualityMetrics:
     
     def overall_score(self) -> float:
         """Calculate weighted overall quality score"""
-        weights = {
-            'response_consistency': 0.2,
-            'topic_coherence': 0.2,
-            'decision_clarity': 0.25,
-            'semantic_convergence': 0.15,
-            'actionable_content_score': 0.15,
-            'evidence_based_score': 0.05
-        }
-        
-        return sum(getattr(self, metric) * weight for metric, weight in weights.items())
+        return sum(getattr(self, metric) * weight for metric, weight in QUALITY_WEIGHTS.items())
     
     def passes_threshold(self, threshold: float = 0.6) -> bool:
         """Check if quality metrics meet minimum threshold"""
@@ -149,23 +161,25 @@ class QualityGate:
             return 1.0
         
         # Simple heuristic: check for shared concepts and terminology
-        all_words = []
-        for response in responses:
-            words = set(response.content.lower().split())
-            all_words.append(words)
+        # Use list comprehension for better performance
+        all_words = [set(response.content.lower().split()) for response in responses]
         
         # Calculate overlap between responses
         if not all_words:
             return 0.0
             
-        common_words = set.intersection(*all_words)
-        total_unique_words = set.union(*all_words)
-        
-        if not total_unique_words:
-            return 0.0
+        # Use early returns to avoid unnecessary computation
+        try:
+            common_words = set.intersection(*all_words)
+            total_unique_words = set.union(*all_words)
             
-        consistency = len(common_words) / len(total_unique_words)
-        return min(consistency * 3, 1.0)  # Boost the score as it's typically low
+            if not total_unique_words:
+                return 0.0
+                
+            consistency = len(common_words) / len(total_unique_words)
+            return min(consistency * CONSISTENCY_BOOST, 1.0)  # Boost the score as it's typically low
+        except (TypeError, ValueError):
+            return 0.0
     
     def _calculate_coherence(self, responses: List[AgentResponse]) -> float:
         """Calculate how well responses stay on topic"""
@@ -175,9 +189,9 @@ class QualityGate:
         # Penalize very short or very generic responses
         if avg_length < self.config.min_response_length:
             return 0.3
-        elif avg_length < 100:
+        elif avg_length < SHORT_RESPONSE_LENGTH:
             return 0.5
-        elif avg_length < 200:
+        elif avg_length < MEDIUM_RESPONSE_LENGTH:
             return 0.7
         else:
             return 0.9
@@ -199,7 +213,7 @@ class QualityGate:
         
         # Normalize by response count
         avg_indicators = total_indicators / len(responses)
-        return min(avg_indicators / 5, 1.0)  # Cap at 1.0
+        return min(avg_indicators / CLARITY_INDICATORS_THRESHOLD, 1.0)  # Cap at 1.0
     
     def _calculate_convergence(self, responses: List[AgentResponse]) -> float:
         """Calculate semantic convergence between responses"""
@@ -232,7 +246,7 @@ class QualityGate:
             total_actionable += actionable_found
         
         avg_actionable = total_actionable / len(responses)
-        return min(avg_actionable / 3, 1.0)  # Cap at 1.0
+        return min(avg_actionable / ACTIONABLE_KEYWORDS_THRESHOLD, 1.0)  # Cap at 1.0
     
     def _calculate_evidence_score(self, responses: List[AgentResponse]) -> float:
         """Calculate how evidence-based the responses are"""
@@ -250,7 +264,7 @@ class QualityGate:
             total_evidence += evidence_found
         
         avg_evidence = total_evidence / len(responses)
-        return min(avg_evidence / 2, 1.0)  # Cap at 1.0
+        return min(avg_evidence / EVIDENCE_INDICATORS_THRESHOLD, 1.0)  # Cap at 1.0
 
 
 class ConsensusProtocol(ABC):
@@ -344,7 +358,7 @@ class ConsensusEngine:
                       session_id: str,
                       topic: str, 
                       config: ConsensusConfig,
-                      agent_responses_generator) -> ConsensusResult:
+                      agent_responses_generator: Callable[[int, str], Awaitable[List[AgentResponse]]]) -> ConsensusResult:
         """Run a complete consensus discussion"""
         
         start_time = datetime.now(timezone.utc)
