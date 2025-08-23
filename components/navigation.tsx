@@ -2,14 +2,12 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { useState } from "react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Bell } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Glass } from "@/components/ui/glass"
 import { useNudges } from "@/components/nudges-provider"
-import { NudgesPanel } from "@/components/nudges-panel"
 
 const navigationItems = [
   { name: "Dashboard", href: "/dashboard", key: "d" },
@@ -19,10 +17,13 @@ const navigationItems = [
   { name: "Settings", href: "/settings", key: "t" },
 ]
 
-export function Navigation() {
+type NavigationProps = {
+  onShowNudges: () => void
+}
+
+export function Navigation({ onShowNudges }: NavigationProps) {
   const pathname = usePathname()
   const { unreadCount, add: addNudge } = useNudges()
-  const [nudgesOpen, setNudgesOpen] = useState(false)
 
   function seedExampleNudge() {
     addNudge({
@@ -96,7 +97,7 @@ export function Navigation() {
                   variant="ghost"
                   size="sm"
                   className="relative hover:bg-white/10 text-white/80 hover:text-white focus-visible:ring-brand-500/60"
-                  onClick={() => setNudgesOpen(true)}
+                  onClick={onShowNudges}
                   aria-label={`View nudges${unreadCount > 0 ? ` (${unreadCount} unread)` : ""}`}
                 >
                   <Bell className="h-4 w-4" />
@@ -114,27 +115,6 @@ export function Navigation() {
           </div>
         </Glass>
       </header>
-
-      <NudgesPanel
-        open={nudgesOpen}
-        onOpenChange={setNudgesOpen}
-        onApproveActions={{
-          bump: (id) => {
-            const el = document.querySelector<HTMLElement>(`[data-id="${id}"]`)
-            if (el) {
-              // Call existing handleBump - this would need to be passed down or accessed via context
-              console.log("Bump action for task:", id)
-            }
-          },
-          burn: (id) => {
-            console.log("Burn action for task:", id)
-          },
-          reschedule: (id, minutes) => console.log("Reschedule action:", id, minutes),
-          createTask: (title) => {
-            console.log("Create task action:", title)
-          },
-        }}
-      />
     </>
   )
 }

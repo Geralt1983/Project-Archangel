@@ -516,7 +516,7 @@ export default function BoardPage() {
 
   return (
     <div className="min-h-screen">
-      <Navigation />
+      <Navigation onShowNudges={() => setNudgesOpen(true)} />
       <main className="container mx-auto py-6">
         <FadeIn>
           <div className="flex items-center justify-between mb-6">
