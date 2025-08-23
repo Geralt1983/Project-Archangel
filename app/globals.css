@@ -2,8 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-@import "tailwindcss";
-
 @theme inline {
   /* Brand colors */
   --color-brand-50: #eef6ff;
