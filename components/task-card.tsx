@@ -134,6 +134,7 @@ export function TaskCard({ task, onClick, onBump, onBurn, onSendToReady, compact
   }
 
   const handleBurnClick = (e: React.MouseEvent) => {
+    e.preventDefault()
     e.stopPropagation()
     console.log("[v0] TaskCard handleBurnClick called for task:", task.id)
     if (isBurning) return
@@ -141,7 +142,7 @@ export function TaskCard({ task, onClick, onBump, onBurn, onSendToReady, compact
     setIsBurning(true)
 
     // Create ember burst
-    const cardElement = e.currentTarget.closest(".card") as HTMLElement
+    const cardElement = cardRef.current || (e.currentTarget.closest(".card") as HTMLElement)
     if (cardElement) {
       const emberCount = isUrgent ? 120 : 80
       createEmbersFrom(cardElement, emberCount, 1800)
@@ -160,6 +161,7 @@ export function TaskCard({ task, onClick, onBump, onBurn, onSendToReady, compact
   }
 
   const handleBumpClick = (e: React.MouseEvent) => {
+    e.preventDefault()
     e.stopPropagation()
     console.log("[v0] TaskCard handleBumpClick called for task:", task.id)
 
@@ -167,15 +169,31 @@ export function TaskCard({ task, onClick, onBump, onBurn, onSendToReady, compact
       setIsInteracted(true)
     }
 
-    if (cardRef.current && onBump) {
+    // Try to play sound (ignore if it fails)
+    if (boingSound) {
+      boingSound.currentTime = 0
+      boingSound.play().catch(() => {
+        console.log("[v0] Sound play failed - continuing without sound")
+      })
+    }
+
+    // Get the card element for animation
+    const cardElement = cardRef.current || (e.target as HTMLElement).closest('.card') as HTMLElement
+
+    if (cardElement && onBump) {
       console.log("[v0] Calling onBump with task ID and element")
-      onBump(task.id, cardRef.current)
+      onBump(task.id, cardElement)
     } else {
-      console.log("[v0] Missing cardRef or onBump handler")
+      console.log("[v0] Missing card element or onBump handler", {
+        hasCardRef: !!cardRef.current,
+        hasClosestCard: !!(e.target as HTMLElement).closest('.card'),
+        hasOnBump: !!onBump,
+      })
     }
   }
 
   const handleSendToReadyClick = (e: React.MouseEvent) => {
+    e.preventDefault()
     e.stopPropagation()
     if (cardRef.current && onSendToReady) {
       onSendToReady(task.id, cardRef.current)
@@ -398,7 +416,7 @@ export function TaskCard({ task, onClick, onBump, onBurn, onSendToReady, compact
 
                 {/* Action buttons */}
                 <motion.div
-                  className="flex items-center justify-end gap-1 pt-1"
+                  className="flex items-center justify-end gap-1 pt-1 pointer-events-auto"
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.5 }}
@@ -411,6 +429,7 @@ export function TaskCard({ task, onClick, onBump, onBurn, onSendToReady, compact
                           size="sm"
                           className="h-6 px-2 text-xs text-green-400/70 hover:text-green-300 hover:bg-green-500/10 transition-all duration-200"
                           onClick={handleSendToReadyClick}
+                          data-no-drag
                         >
                           <ArrowUp className="h-3 w-3 mr-1" />
                           Ready
@@ -423,6 +442,7 @@ export function TaskCard({ task, onClick, onBump, onBurn, onSendToReady, compact
                           className="h-6 px-2 text-xs text-red-400/70 hover:text-red-300 hover:bg-red-500/10 transition-all duration-200"
                           onClick={handleBurnClick}
                           disabled={isBurning}
+                          data-no-drag
                         >
                           <Trash2 className="h-3 w-3 mr-1" />
                           Burn
@@ -437,6 +457,7 @@ export function TaskCard({ task, onClick, onBump, onBurn, onSendToReady, compact
                           size="sm"
                           className="h-6 px-2 text-xs text-white/70 hover:text-white hover:bg-white/10 transition-all duration-200"
                           onClick={handleBumpClick}
+                          data-no-drag
                         >
                           <ArrowUp className="h-3 w-3 mr-1" />
                           Bump
@@ -449,6 +470,7 @@ export function TaskCard({ task, onClick, onBump, onBurn, onSendToReady, compact
                           className="h-6 px-2 text-xs text-red-400/70 hover:text-red-300 hover:bg-red-500/10 transition-all duration-200"
                           onClick={handleBurnClick}
                           disabled={isBurning}
+                          data-no-drag
                         >
                           <Trash2 className="h-3 w-3 mr-1" />
                           Burn

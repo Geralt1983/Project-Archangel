@@ -40,14 +40,15 @@ export function SortableTaskCard({
     acc[key] = (e: any) => {
       // Check if the event target or any parent is a button or has data-no-drag
       const target = e.target as HTMLElement
-      if (
-        target.closest("button") ||
-        target.closest("[data-no-drag]") ||
-        target.tagName === "BUTTON" ||
-        target.hasAttribute("data-no-drag")
-      ) {
+      const isButton = target.closest("button") || target.tagName === "BUTTON"
+      const hasNoDrag = target.closest("[data-no-drag]") || target.hasAttribute("data-no-drag")
+
+      if (isButton || hasNoDrag) {
         console.log("[v0] Preventing drag on button/no-drag element")
-        e.preventDefault()
+        // Don't prevent default for buttons - let them handle clicks normally
+        if (!isButton) {
+          e.preventDefault()
+        }
         e.stopPropagation()
         return
       }
