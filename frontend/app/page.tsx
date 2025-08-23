@@ -121,7 +121,7 @@ export default function BoardPage() {
   const doingAnchorRef = useRef<HTMLDivElement>(null)
   const columnRefs = useRef<{ [key: string]: HTMLDivElement | null }>({})
 
-  const { add: addNudge } = useNudges()
+  const { nudges, add: addNudge, replaceAll } = useNudges()
 
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
@@ -136,6 +136,16 @@ export default function BoardPage() {
   useEffect(() => {
     saveInbox(inbox)
   }, [inbox])
+
+  // Remove nudges that reference tasks which no longer exist
+  useEffect(() => {
+    const taskIds = new Set(tasks.map((t) => t.id))
+    const filtered = nudges.filter((n) => {
+      const id = n.action?.payload && "taskId" in n.action.payload ? n.action.payload.taskId : undefined
+      return !id || taskIds.has(id)
+    })
+    if (filtered.length !== nudges.length) replaceAll(filtered)
+  }, [tasks, nudges, replaceAll])
 
   // Animation helpers
   function nextFrame(): Promise<void> {
