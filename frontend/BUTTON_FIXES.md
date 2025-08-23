@@ -45,17 +45,17 @@ The frontend is now running at `http://localhost:3000`
    - **Burn**: Should show fire animation and remove task after 1.4 seconds
 
 ### Expected Console Output:
-```
+\`\`\`
 [v0] TaskCard handleBumpClick called for task: [task-id]
 [v0] Calling onBump with task ID and element
 [v0] handleBump called with taskId: [task-id]
-```
+\`\`\`
 
-```
+\`\`\`
 [v0] TaskCard handleBurnClick called for task: [task-id]
 [v0] Calling onBurn for task: [task-id]
 [v0] handleBurn called with taskId: [task-id]
-```
+\`\`\`
 
 ## Notes
 

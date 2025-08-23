@@ -49,7 +49,7 @@ The complete bump animation sequence has been restored:
 4. **Click Bump button** on a task card
 
 ### Expected Console Output:
-```
+\`\`\`
 [v0] TaskCard handleBumpClick called for task: [task-id]
 [v0] Calling onBump with task ID and element
 [v0] handleBump called with taskId: [task-id]
@@ -59,7 +59,7 @@ The complete bump animation sequence has been restored:
 [v0] Stage 3: Starting fly animation
 [v0] Flying to doing column {source: {...}, target: {...}}
 [v0] Stage 4: Committing state change
-```
+\`\`\`
 
 ### Expected Visual Sequence:
 1. **Card elevates** - lifts up with shadow

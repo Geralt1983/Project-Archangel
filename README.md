@@ -34,16 +34,16 @@ Project Archangel intelligently balances workload across multiple task managemen
 
 ### 1. Environment Setup
 
-```bash
+\`\`\`bash
 # Copy environment template
 cp .env.example .env
 
 # Edit configuration
 nano .env
-```
+\`\`\`
 
 **Required Environment Variables:**
-```env
+\`\`\`env
 # Database
 DATABASE_URL=postgresql://archangel:archangel@localhost:5432/archangel
 REDIS_URL=redis://localhost:6379/0
@@ -61,7 +61,7 @@ ENCRYPTION_KEY=your-32-byte-encryption-key
 # Monitoring (Optional)
 JAEGER_ENDPOINT=http://jaeger:14268/api/traces
 PROMETHEUS_ENDPOINT=http://prometheus:9090
-```
+\`\`\`
 
 ### 2. Quick Start with Docker
 
@@ -75,7 +75,7 @@ Supabase (Postgres) is supported out of the box. For local or CI runs against Su
   - Add GitHub repo secret SUPABASE_DATABASE_URL with the connection string
   - CI will automatically run integration tests if the secret is present
 
-```bash
+\`\`\`bash
 # Start all services
 docker-compose up -d
 
@@ -87,11 +87,11 @@ make test
 
 # View logs
 docker-compose logs -f api
-```
+\`\`\`
 
 ### 3. Verify Installation
 
-```bash
+\`\`\`bash
 # Health check
 curl http://localhost:8080/health
 
@@ -100,13 +100,13 @@ open http://localhost:8080/docs
 
 # Monitoring dashboard
 open http://localhost:3000  # Grafana (admin/admin)
-```
+\`\`\`
 
 ## 🏗️ Architecture
 
 ### System Overview
 
-```
+\`\`\`
 ┌─────────────────────────────────────────────────────────────┐
 │                    Project Archangel                       │
 ├─────────────────────────────────────────────────────────────┤
@@ -129,7 +129,7 @@ open http://localhost:3000  # Grafana (admin/admin)
 │  │                PostgreSQL + Redis                  │   │
 │  └─────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────┘
-```
+\`\`\`
 
 ### Core Components
 
@@ -144,7 +144,7 @@ open http://localhost:3000  # Grafana (admin/admin)
 ### Task Management
 
 #### Create Task (Auto-Routed)
-```bash
+\`\`\`bash
 curl -X POST http://localhost:8080/api/tasks \
   -H "Content-Type: application/json" \
   -d '{
@@ -156,30 +156,30 @@ curl -X POST http://localhost:8080/api/tasks \
     "assignee": "john.doe",
     "tags": ["backend", "security"]
   }'
-```
+\`\`\`
 
 ### Workload Balancing
 
 #### Generate Daily Plan
-```bash
+\`\`\`bash
 curl -X POST http://localhost:8080/api/planner/daily \
   -H "Content-Type: application/json" \
   -d '{"hours": 8, "team_members": ["alice", "bob", "charlie"]}'
-```
+\`\`\`
 
 ### Analytics & Monitoring
 
 #### Task Completion Metrics
-```bash
+\`\`\`bash
 curl http://localhost:8080/api/analytics/performance?days=30
-```
+\`\`\`
 
 ## 🔧 Configuration
 
 ### Scoring Algorithm
 The system uses a multi-factor scoring algorithm to route tasks:
 
-```python
+\`\`\`python
 score = (
     0.30 * urgency +          # deadline pressure
     0.25 * importance +       # client importance  
@@ -188,13 +188,13 @@ score = (
     0.15 * sla_pressure +     # SLA compliance
     0.05 * recent_progress_inv # stuck tasks
 )
-```
+\`\`\`
 
 ## 🛠️ Development
 
 ### Local Development
 
-```bash
+\`\`\`bash
 # Install dependencies
 pip install -r requirements-dev.txt
 
@@ -203,11 +203,11 @@ docker-compose -f docker-compose.dev.yml up -d
 
 # Run application
 python -m app.main
-```
+\`\`\`
 
 ### Testing
 
-```bash
+\`\`\`bash
 # Unit tests
 pytest tests/unit/
 
@@ -216,19 +216,19 @@ pytest tests/integration/
 
 # Load testing
 locust -f tests/load/locustfile.py --host=http://localhost:8080
-```
+\`\`\`
 
 ## 📊 Monitoring
 
 ### Health Checks
 
-```bash
+\`\`\`bash
 # System health
 curl http://localhost:8080/health
 
 # Provider health
 curl http://localhost:8080/api/providers/health
-```
+\`\`\`
 
 ### Key Metrics
 
@@ -274,7 +274,7 @@ A production-ready task orchestrator that automatically triages, prioritizes, an
 
 ### 1. Setup Serena MCP Server (Optional but Recommended)
 
-```bash
+\`\`\`bash
 # Install uv package manager
 brew install uv    # or: curl -LsSf https://astral.sh/uv/install.sh | sh
 
@@ -286,22 +286,22 @@ cp .env.example .env   # edit if you want provider keys later
 # Start the MCP server with dashboard
 uv run serena start-mcp-server
 # Dashboard: http://localhost:24282/dashboard/index.html
-```
+\`\`\`
 
 ### 2. Setup Project Archangel
 
-```bash
+\`\`\`bash
 cp .env.example .env
 # Add your ClickUp credentials and Serena URL to .env
 docker compose up --build
-```
+\`\`\`
 
 ## Demo
 
 Test with different providers and AI enhancement:
 
 **ClickUp with Serena AI (default):**
-```bash
+\`\`\`bash
 curl -X POST http://localhost:8080/tasks/intake \
   -H "Content-Type: application/json" \
   -d '{
@@ -310,10 +310,10 @@ curl -X POST http://localhost:8080/tasks/intake \
     "client": "acme",
     "deadline": "2025-08-12T17:00:00Z"
   }'
-```
+\`\`\`
 
 **Trello:**
-```bash
+\`\`\`bash
 curl -X POST "http://localhost:8080/tasks/intake?provider=trello" \
   -H "Content-Type: application/json" \
   -d '{
@@ -321,10 +321,10 @@ curl -X POST "http://localhost:8080/tasks/intake?provider=trello" \
     "description": "Need metrics pull",
     "client": "meridian"
   }'
-```
+\`\`\`
 
 **Todoist:**
-```bash
+\`\`\`bash
 curl -X POST "http://localhost:8080/tasks/intake?provider=todoist" \
   -H "Content-Type: application/json" \
   -d '{
@@ -332,10 +332,10 @@ curl -X POST "http://localhost:8080/tasks/intake?provider=todoist" \
     "description": "Provision SSO",
     "client": "acme"
   }'
-```
+\`\`\`
 
 Expected response with Serena enhancement:
-```json
+\`\`\`json
 {
   "id": "tsk_xxxx",
   "provider": "clickup|trello|todoist",
@@ -349,7 +349,7 @@ Expected response with Serena enhancement:
     "requires_review": false
   }
 }
-```
+\`\`\`
 
 ## API Endpoints
 
@@ -393,7 +393,7 @@ Expected response with Serena enhancement:
 
 ### Environment Variables
 
-```env
+\`\`\`env
 # Core settings
 PORT=8080
 DATABASE_URL=postgresql://postgres:postgres@db:5432/tasks
@@ -411,7 +411,7 @@ CLICKUP_TOKEN=your_clickup_token
 CLICKUP_TEAM_ID=your_clickup_team
 CLICKUP_LIST_ID=your_clickup_list
 CLICKUP_WEBHOOK_SECRET=your_clickup_webhook_secret
-```
+\`\`\`
 
 ### Business Rules
 
@@ -457,11 +457,11 @@ The system gracefully handles AI unavailability:
 
 ## Architecture
 
-```
+\`\`\`
 Intake → Serena AI Analysis → Enhanced Triage → Classification → Scoring → 
 Subtask Generation → Provider API → Real-time Activity Tracking → 
 Automated Nudging → Slack Notifications
-```
+\`\`\`
 
 ### AI-Enhanced Flow
 
@@ -488,7 +488,7 @@ Automated Nudging → Slack Notifications
 
 ### Development Testing
 
-```bash
+\`\`\`bash
 # Test AI integration
 SERENA_ENABLED=true python -m pytest tests/test_serena_toggle.py
 
@@ -497,7 +497,7 @@ SERENA_ENABLED=false python -m pytest tests/test_serena_toggle.py
 
 # Test task mapping
 python -m pytest tests/test_webhook_idempotent.py
-```
+\`\`\`
 
 ## Production Deployment
 
@@ -529,7 +529,7 @@ Built for reliability, intelligence, and easy extension. 🚀🧠
 
 ### With Real Serena MCP Server
 
-```bash
+\`\`\`bash
 # Terminal 1: Start Serena
 cd serena
 uv run serena start-mcp-server
@@ -537,17 +537,17 @@ uv run serena start-mcp-server
 # Terminal 2: Start Project Archangel  
 cd project-archangel
 docker compose up --build
-```
+\`\`\`
 
 ### With Mock Server (No AI)
 
-```bash
+\`\`\`bash
 # Terminal 1: Start mock
 cd dev && uvicorn serena_mock:app --port 9000 --reload
 
 # Terminal 2: Start with mock
 export SERENA_BASE_URL=http://localhost:9000
 docker compose up --build
-```
+\`\`\`
 
 The system seamlessly switches between real AI and deterministic fallback based on configuration.
