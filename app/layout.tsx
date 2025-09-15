@@ -3,7 +3,7 @@ import type { Metadata } from "next"
 import { GeistSans } from "geist/font/sans"
 import { GeistMono } from "geist/font/mono"
 import "./globals.css"
-import { ThemeProvider } from "@/components/theme-provider"
+// import { ThemeProvider } from "@/components/theme-provider"
 import { NudgesProvider } from "@/components/nudges-provider"
 
 export const metadata: Metadata = {
@@ -29,9 +29,7 @@ html {
         `}</style>
       </head>
       <body className="bg-grain">
-        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
-          <NudgesProvider>{children}</NudgesProvider>
-        </ThemeProvider>
+        <NudgesProvider>{children}</NudgesProvider>
       </body>
     </html>
   )
